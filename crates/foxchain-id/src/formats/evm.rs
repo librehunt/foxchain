@@ -15,14 +15,18 @@ pub fn detect_evm(input: &str) -> Result<Option<IdentificationResult>, Error> {
     }
 
     let hex_part = &input[2..];
-    
+
     // Validate hex characters
     if !hex_part.chars().all(|c| c.is_ascii_hexdigit()) {
         return Ok(None);
     }
 
     // Validate address length (20 bytes = 40 hex chars)
-    if hex::decode(hex_part).map_err(|e| Error::InvalidInput(format!("Invalid hex: {}", e)))?.len() != 20 {
+    if hex::decode(hex_part)
+        .map_err(|e| Error::InvalidInput(format!("Invalid hex: {}", e)))?
+        .len()
+        != 20
+    {
         return Ok(None);
     }
 
@@ -47,10 +51,16 @@ pub fn detect_evm(input: &str) -> Result<Option<IdentificationResult>, Error> {
 fn validate_eip55_checksum(address: &str) -> bool {
     // If address is all lowercase or all uppercase, it's not checksummed
     let hex_part = &address[2..];
-    if hex_part.chars().all(|c| c.is_ascii_lowercase() || !c.is_alphabetic()) {
+    if hex_part
+        .chars()
+        .all(|c| c.is_ascii_lowercase() || !c.is_alphabetic())
+    {
         return false;
     }
-    if hex_part.chars().all(|c| c.is_ascii_uppercase() || !c.is_alphabetic()) {
+    if hex_part
+        .chars()
+        .all(|c| c.is_ascii_uppercase() || !c.is_alphabetic())
+    {
         return false;
     }
 
@@ -58,7 +68,7 @@ fn validate_eip55_checksum(address: &str) -> bool {
     // EIP-55: hash the lowercase address (including 0x prefix)
     let lowercase = address.to_lowercase();
     let hash = keccak256(lowercase.as_bytes());
-    
+
     for (i, char) in hex_part.chars().enumerate() {
         if char.is_alphabetic() {
             let byte_index = i / 2;
@@ -67,16 +77,16 @@ fn validate_eip55_checksum(address: &str) -> bool {
             } else {
                 hash[byte_index] & 0x0f
             };
-            
+
             let should_be_uppercase = nibble >= 8;
             let is_uppercase = char.is_uppercase();
-            
+
             if should_be_uppercase != is_uppercase {
                 return false;
             }
         }
     }
-    
+
     true
 }
 
@@ -84,11 +94,11 @@ fn validate_eip55_checksum(address: &str) -> bool {
 fn normalize_to_eip55(address: &str) -> Result<String, Error> {
     let lowercase = address.to_lowercase();
     let hex_part = &lowercase[2..];
-    
+
     // Decode to bytes to validate
-    let bytes = hex::decode(hex_part)
-        .map_err(|e| Error::InvalidInput(format!("Invalid hex: {}", e)))?;
-    
+    let bytes =
+        hex::decode(hex_part).map_err(|e| Error::InvalidInput(format!("Invalid hex: {}", e)))?;
+
     if bytes.len() != 20 {
         return Err(Error::InvalidInput("Address must be 20 bytes".to_string()));
     }
@@ -96,7 +106,7 @@ fn normalize_to_eip55(address: &str) -> Result<String, Error> {
     // Compute checksum
     let hash = keccak256(lowercase.as_bytes());
     let mut normalized = String::from("0x");
-    
+
     for (i, char) in hex_part.chars().enumerate() {
         if char.is_alphabetic() {
             let byte_index = i / 2;
@@ -105,7 +115,7 @@ fn normalize_to_eip55(address: &str) -> Result<String, Error> {
             } else {
                 hash[byte_index] & 0x0f
             };
-            
+
             if nibble >= 8 {
                 normalized.push(char.to_uppercase().next().unwrap());
             } else {
@@ -115,7 +125,7 @@ fn normalize_to_eip55(address: &str) -> Result<String, Error> {
             normalized.push(char);
         }
     }
-    
+
     Ok(normalized)
 }
 
@@ -226,12 +236,16 @@ mod tests {
         let lowercase = "0xd8da6bf26964af9d7eed9e03e53415d37aa96045";
         let normalized = normalize_to_eip55(lowercase).unwrap();
         assert!(validate_eip55_checksum(&normalized));
-        
+
         // Lowercase (no checksum)
-        assert!(!validate_eip55_checksum("0xd8da6bf26964af9d7eed9e03e53415d37aa96045"));
-        
+        assert!(!validate_eip55_checksum(
+            "0xd8da6bf26964af9d7eed9e03e53415d37aa96045"
+        ));
+
         // All uppercase (no checksum)
-        assert!(!validate_eip55_checksum("0xD8DA6BF26964AF9D7EED9E03E53415D37AA96045"));
+        assert!(!validate_eip55_checksum(
+            "0xD8DA6BF26964AF9D7EED9E03E53415D37AA96045"
+        ));
     }
 
     #[test]
@@ -245,7 +259,7 @@ mod tests {
         assert_eq!(normalized.len(), 42);
         // Verify it validates as correct checksum
         assert!(validate_eip55_checksum(&normalized));
-        
+
         // Test with another address
         let lowercase2 = "0x742d35cc6634c0532925a3b844bc454e4438f44e";
         let normalized2 = normalize_to_eip55(lowercase2).unwrap();
@@ -263,4 +277,3 @@ mod tests {
         assert_eq!(candidates[0].confidence, 0.95);
     }
 }
-
