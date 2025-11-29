@@ -1,0 +1,10 @@
+[package]
+name = "foxchain-id"
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Multi-chain blockchain address identification library"
+
+[dependencies]
+

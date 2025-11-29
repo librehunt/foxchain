@@ -4,6 +4,10 @@
 
 [Full Changelog](https://github.com/librehunt/foxchain/compare/f9d6d027ed2e0164435e56e6c12f0184422a79c8...HEAD)
 
+### Added
+- Workspace structure with foxchain-id and foxchain-analysis crates
+- Root library that re-exports both crates for unified access
+
 ### Changed
 - Rename project from rbase to foxchain: updated package name in Cargo.toml, README.md badges/links, and CHANGELOG.md URLs
 
