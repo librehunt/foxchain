@@ -68,6 +68,41 @@ fn main() -> anyhow::Result<()> {
 - Prefer addresses/public keys. Private key handling is optional and opt-in; if enabled, keep it offline and ephemeral. Do not persist, print, or transmit keys.
 - Respect third-party API rate limits and terms.
 
+### Publishing to crates.io
+
+The project uses automated publishing via GitHub Actions. All crates are published to crates.io when a release is created or when manually triggered.
+
+#### Automatic Publishing
+
+When a GitHub release is created, the workflow automatically:
+1. Extracts the version from the release tag
+2. Validates the version format
+3. Publishes crates in dependency order:
+   - `foxchain-id` (no workspace dependencies)
+   - `foxchain-analysis` (depends on `foxchain-id`)
+   - `foxchain` (depends on both)
+
+#### Manual Publishing
+
+You can manually trigger the publishing workflow:
+
+1. Go to **Actions** → **Publish to crates.io** → **Run workflow**
+2. Optionally specify a version (leave empty to use version from `Cargo.toml`)
+3. Optionally enable dry run mode to validate without publishing
+4. Click **Run workflow**
+
+#### Prerequisites
+
+- `CARGO_REGISTRY_TOKEN` must be set in GitHub repository secrets
+- Get your token from [crates.io account settings](https://crates.io/me)
+- The token must have publish permissions for all crates
+
+#### Version Management
+
+- All crates use workspace version from root `Cargo.toml`
+- Versions are automatically synchronized
+- When publishing via release, the version is extracted from the tag (e.g., `v0.2.2` → `0.2.2`)
+
 ### Roadmap (initial)
 - v0: robust format detection, multi-chain address normalization, EVM/BTC/Solana/Cosmos/Substrate coverage, explorer/RPC adapters, pagination.
 - v0.x: richer token/NFT coverage, internal txs, labels/tags where available, CLI wrapper, basic HTTP service.
