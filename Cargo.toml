@@ -2,6 +2,7 @@
 members = [
     ".",
     "crates/foxchain-id",
+    "crates/foxchain-analysis",
 ]
 resolver = "2"
 
@@ -21,3 +22,4 @@ description = "Multi-chain blockchain address identification and analysis librar
 
 [dependencies]
 foxchain-id = { path = "crates/foxchain-id" }
+foxchain-analysis = { path = "crates/foxchain-analysis" }

@@ -5,6 +5,8 @@
 [Full Changelog](https://github.com/librehunt/foxchain/compare/f9d6d027ed2e0164435e56e6c12f0184422a79c8...HEAD)
 
 ### Added
+- Workspace structure with foxchain-id and foxchain-analysis crates
+- Root library that re-exports both crates for unified access
 - EVM address detection and normalization in foxchain-id crate
   - EIP-55 checksum validation and normalization
   - Support for 10+ EVM-compatible chains (Ethereum, Polygon, BSC, Avalanche, Arbitrum, Optimism, Base, Fantom, Celo, Gnosis)
