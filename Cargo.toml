@@ -1,10 +1,23 @@
-[package]
-name = "foxchain"
+[workspace]
+members = [
+    ".",
+    "crates/foxchain-id",
+]
+resolver = "2"
+
+[workspace.package]
 version = "0.2.2"
 authors = ["LSH <github@lsh.tech>"]
 edition = "2021"
-description = "Multi-chain blockchain address identification and analysis library"
 license = "GPL-3.0"
 
+[package]
+name = "foxchain"
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Multi-chain blockchain address identification and analysis library"
 
 [dependencies]
+foxchain-id = { path = "crates/foxchain-id" }
