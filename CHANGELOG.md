@@ -7,6 +7,10 @@
 ### Added
 - Workspace structure with foxchain-id and foxchain-analysis crates
 - Root library that re-exports both crates for unified access
+- EVM address detection and normalization in foxchain-id crate
+  - EIP-55 checksum validation and normalization
+  - Support for 10+ EVM-compatible chains (Ethereum, Polygon, BSC, Avalanche, Arbitrum, Optimism, Base, Fantom, Celo, Gnosis)
+  - Multi-chain candidate generation with confidence scores
 
 ### Changed
 - Rename project from rbase to foxchain: updated package name in Cargo.toml, README.md badges/links, and CHANGELOG.md URLs
