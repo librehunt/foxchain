@@ -30,8 +30,11 @@ pub fn identify(input: &str) -> Result<IdentificationResult, Error> {
     }
 
     // TODO: Add other format detectors (Bitcoin, Solana, Cosmos, etc.)
-    
-    Err(Error::InvalidInput(format!("Unable to identify address format: {}", input)))
+
+    Err(Error::InvalidInput(format!(
+        "Unable to identify address format: {}",
+        input
+    )))
 }
 
 /// Result of identification process
