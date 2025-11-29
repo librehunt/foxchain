@@ -14,10 +14,11 @@ Multi-chain blockchain address identification and analysis library
 
 Foxchain will provide two Rust crates that work together:
 
-- Identification crate (working name: foxchain-id)
+- Identification crate (foxchain-id)
   - Purpose: Given an input string (address, public key, or private key), detect the most likely blockchain(s) it belongs to.
   - Output: normalized representation (e.g., checksum-cased for EVM, bech32 HRP for Cosmos/BTC SegWit, SS58 for Substrate), a list of candidate chains, confidence scores, and reasoning.
   - Ambiguity: When an input could belong to multiple chains (e.g., EVM-style addresses valid across many EVM chains), it returns all candidates with confidence levels rather than guessing.
+  - Documentation: See [foxchain-id README](crates/foxchain-id/README.md) and [Format Documentation](crates/foxchain-id/docs/) for detailed information about supported address formats.
 
 - Analysis crate (working name: foxchain-analysis)
   - Purpose: For an identified wallet (address/public key; optionally private key where explicitly allowed), retrieve on-chain data such as balances, transaction history, token transfers (ERC-20/721/1155), and chain-specific artifacts.
