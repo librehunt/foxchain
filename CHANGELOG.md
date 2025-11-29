@@ -11,6 +11,14 @@
   - EIP-55 checksum validation and normalization
   - Support for 10+ EVM-compatible chains (Ethereum, Polygon, BSC, Avalanche, Arbitrum, Optimism, Base, Fantom, Celo, Gnosis)
   - Multi-chain candidate generation with confidence scores
+- Bitcoin ecosystem address detection and normalization in foxchain-id crate
+  - P2PKH address detection (legacy, starts with 1)
+  - P2SH address detection (script hash, starts with 3)
+  - Bech32 address detection (native SegWit, starts with bc1/ltc1/etc.)
+  - Base58Check validation for P2PKH and P2SH addresses
+  - Bech32 validation for native SegWit addresses
+  - Support for Bitcoin, Litecoin, and Dogecoin
+  - Chain identification based on version bytes and HRP prefixes
 - Automated publishing workflow for all crates to crates.io
   - Supports automatic publishing on release creation
   - Supports manual publishing via workflow_dispatch
