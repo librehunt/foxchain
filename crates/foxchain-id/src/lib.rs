@@ -5,7 +5,7 @@
 
 mod formats;
 
-use formats::evm;
+use formats::{bitcoin, evm};
 
 /// Identify the blockchain(s) for a given input string.
 ///
@@ -29,7 +29,12 @@ pub fn identify(input: &str) -> Result<IdentificationResult, Error> {
         return Ok(result);
     }
 
-    // TODO: Add other format detectors (Bitcoin, Solana, Cosmos, etc.)
+    // Try Bitcoin ecosystem addresses
+    if let Some(result) = bitcoin::detect_bitcoin(input)? {
+        return Ok(result);
+    }
+
+    // TODO: Add other format detectors (Solana, Cosmos, etc.)
 
     Err(Error::InvalidInput(format!(
         "Unable to identify address format: {}",
@@ -71,8 +76,11 @@ pub enum Chain {
     Fantom,
     Celo,
     Gnosis,
-    // Other chains
+    // Bitcoin ecosystem
     Bitcoin,
+    Litecoin,
+    Dogecoin,
+    // Other chains
     Solana,
     Cosmos,
     Polkadot,
