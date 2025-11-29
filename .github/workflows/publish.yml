@@ -91,12 +91,10 @@ jobs:
           WORKSPACE_VERSION=$(grep -E '^version\s*=' Cargo.toml | head -1 | sed 's/.*version\s*=\s*"\(.*\)".*/\1/')
           ID_VERSION=$(grep -E '^version\s*=' crates/foxchain-id/Cargo.toml | head -1 | sed 's/.*version\s*=\s*"\(.*\)".*/\1/' || echo "workspace")
           ANALYSIS_VERSION=$(grep -E '^version\s*=' crates/foxchain-analysis/Cargo.toml | head -1 | sed 's/.*version\s*=\s*"\(.*\)".*/\1/' || echo "workspace")
-          ROOT_VERSION=$(grep -E '^version\s*=' Cargo.toml | head -1 | sed 's/.*version\s*=\s*"\(.*\)".*/\1/')
           
           echo "Workspace version: $WORKSPACE_VERSION"
           echo "foxchain-id version: $ID_VERSION"
           echo "foxchain-analysis version: $ANALYSIS_VERSION"
-          echo "foxchain (root) version: $ROOT_VERSION"
           
           # All should match workspace version (or be workspace)
           if [ "$ID_VERSION" != "workspace" ] && [ "$ID_VERSION" != "$WORKSPACE_VERSION" ]; then
@@ -118,7 +116,7 @@ jobs:
         if: github.event.inputs.dry_run != 'true'
         run: |
           cd crates/foxchain-id
-          cargo publish --token ${{ secrets.CARGO_REGISTRY_TOKEN }} || {
+          cargo publish || {
             echo "Error: Failed to publish foxchain-id"
             exit 1
           }
@@ -130,7 +128,7 @@ jobs:
         if: github.event.inputs.dry_run != 'true'
         run: |
           cd crates/foxchain-analysis
-          cargo publish --token ${{ secrets.CARGO_REGISTRY_TOKEN }} || {
+          cargo publish || {
             echo "Error: Failed to publish foxchain-analysis"
             exit 1
           }
@@ -141,7 +139,7 @@ jobs:
       - name: Publish foxchain (root)
         if: github.event.inputs.dry_run != 'true'
         run: |
-          cargo publish --token ${{ secrets.CARGO_REGISTRY_TOKEN }} || {
+          cargo publish || {
             echo "Error: Failed to publish foxchain"
             exit 1
           }
