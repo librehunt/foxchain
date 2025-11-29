@@ -1,0 +1,11 @@
+[package]
+name = "foxchain-analysis"
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Multi-chain blockchain wallet analysis library"
+
+[dependencies]
+foxchain-id = { path = "../foxchain-id" }
+
