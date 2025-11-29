@@ -1,9 +1,9 @@
 [package]
-name = "rbase"
+name = "foxchain"
 version = "0.2.2"
 authors = ["LSH <github@lsh.tech>"]
 edition = "2021"
-description = "Github template to setup the CI and cargo publish"
+description = "Multi-chain blockchain address identification and analysis library"
 license = "GPL-3.0"
 
 
