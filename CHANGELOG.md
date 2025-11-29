@@ -11,6 +11,12 @@
   - EIP-55 checksum validation and normalization
   - Support for 10+ EVM-compatible chains (Ethereum, Polygon, BSC, Avalanche, Arbitrum, Optimism, Base, Fantom, Celo, Gnosis)
   - Multi-chain candidate generation with confidence scores
+- Automated publishing workflow for all crates to crates.io
+  - Supports automatic publishing on release creation
+  - Supports manual publishing via workflow_dispatch
+  - Includes dry-run mode for validation
+  - Publishes crates in correct dependency order
+  - Version validation and synchronization
 
 ### Changed
 - Rename project from rbase to foxchain: updated package name in Cargo.toml, README.md badges/links, and CHANGELOG.md URLs
