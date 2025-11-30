@@ -13,6 +13,8 @@ Multi-chain blockchain address identification library for Rust.
 - **Confidence scoring**: Get confidence scores for each candidate chain
 - **Format detection**: Automatically detect address format (EVM, Bitcoin, Solana, etc.)
 - **EIP-55 checksum validation**: Validate and normalize EVM addresses according to EIP-55
+- **Public key detection**: Detect public keys in various formats (hex, base58, bech32)
+- **Address derivation**: Derive addresses from public keys for supported chains
 
 ## Quick Start
 
@@ -82,6 +84,15 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
   - Support for mainnet (addr, stake) and testnet (addr_test, stake_test) addresses
   - Bech32 validation and checksum verification
   - Case-insensitive normalization
+
+- **Public Key Detection and Address Derivation**
+  - Hex public key detection (compressed/uncompressed secp256k1, Ed25519)
+  - Base58 public key detection
+  - Bech32 public key detection
+  - EVM address derivation from secp256k1 public keys
+  - Bitcoin address derivation from secp256k1 public keys (P2PKH)
+  - Solana address derivation from Ed25519 public keys
+  - Cosmos address derivation from Ed25519 public keys
 
 ### Planned
 

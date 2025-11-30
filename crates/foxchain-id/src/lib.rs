@@ -5,7 +5,7 @@
 
 mod formats;
 
-use formats::{bitcoin, cardano, cosmos, evm, solana, substrate, tron};
+use formats::{bitcoin, cardano, cosmos, evm, public_key, solana, substrate, tron};
 
 /// Identify the blockchain(s) for a given input string.
 ///
@@ -56,6 +56,11 @@ pub fn identify(input: &str) -> Result<IdentificationResult, Error> {
 
     // Try Cardano addresses
     if let Some(result) = cardano::detect_cardano(input)? {
+        return Ok(result);
+    }
+
+    // Try public key detection (after address detection, as addresses are more specific)
+    if let Some(result) = public_key::detect_public_key(input)? {
         return Ok(result);
     }
 
