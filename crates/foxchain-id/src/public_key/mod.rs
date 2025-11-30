@@ -3,12 +3,11 @@
 //! This module detects public keys in various formats (hex, base58, bech32) and
 //! derives addresses for supported blockchains.
 
+use crate::shared::crypto::hash::{double_sha256, hash160, keccak256, sha256};
+use crate::shared::encoding::bech32 as bech32_encoding;
 use crate::{Chain, ChainCandidate, Error, IdentificationResult};
-use base58::FromBase58;
+use base58::{FromBase58, ToBase58};
 use bech32::{self, u5, Variant};
-use hex;
-use sha2::{Digest, Sha256};
-use tiny_keccak::{Hasher, Keccak};
 
 /// Public key format
 #[derive(Debug, Clone, PartialEq)]
@@ -137,7 +136,7 @@ pub fn detect_public_key(input: &str) -> Result<Option<IdentificationResult>, Er
         PublicKeyType::Ed25519 => {
             if key_bytes.len() == 32 {
                 // Solana address is the public key itself (base58 encoded)
-                base58::ToBase58::to_base58(key_bytes.as_slice())
+                key_bytes.as_slice().to_base58()
             } else {
                 derive_cosmos_address(&key_bytes)?.unwrap_or_else(|| "unknown".to_string())
             }
@@ -171,8 +170,8 @@ fn detect_hex_public_key(input: &str) -> Result<Option<(Vec<u8>, PublicKeyType)>
         return Ok(None);
     }
 
-    let bytes =
-        hex::decode(hex_str).map_err(|e| Error::InvalidInput(format!("Invalid hex: {}", e)))?;
+    use crate::shared::encoding::hex;
+    let bytes = hex::decode(hex_str).map_err(Error::InvalidInput)?;
 
     // Check for secp256k1 public keys
     if bytes.len() == 65 && bytes[0] == 0x04 {
@@ -271,10 +270,7 @@ fn derive_evm_address(public_key: &[u8]) -> Result<Option<String>, Error> {
     };
 
     // Compute Keccak-256 hash
-    let mut hasher = Keccak::v256();
-    hasher.update(key_bytes);
-    let mut hash = [0u8; 32];
-    hasher.finalize(&mut hash);
+    let hash = keccak256(key_bytes);
 
     // Take last 20 bytes
     let address_bytes = &hash[12..32];
@@ -300,11 +296,10 @@ fn derive_bitcoin_addresses(public_key: &[u8]) -> Result<Vec<(Chain, String)>, E
     };
 
     // Compute hash160: RIPEMD160(SHA256(public_key))
-    let sha256_hash = Sha256::digest(key_bytes);
-    let ripemd160_hash = ripemd::Ripemd160::digest(sha256_hash);
+    let hash160_bytes = hash160(key_bytes);
 
     // Derive P2PKH address (version 0x00 for Bitcoin mainnet)
-    let p2pkh_address = derive_p2pkh_address(&ripemd160_hash, 0x00)?;
+    let p2pkh_address = derive_p2pkh_address(&hash160_bytes, 0x00)?;
     if let Some(addr) = p2pkh_address {
         addresses.push((Chain::Bitcoin, addr));
     }
@@ -323,16 +318,15 @@ fn derive_p2pkh_address(hash160: &[u8], version: u8) -> Result<Option<String>, E
     payload.extend_from_slice(hash160);
 
     // Compute checksum: first 4 bytes of SHA256(SHA256(payload))
-    let hash1 = Sha256::digest(&payload);
-    let hash2 = Sha256::digest(hash1);
-    let checksum = &hash2[..4];
+    let checksum_hash = double_sha256(&payload);
+    let checksum = &checksum_hash[..4];
 
     // Combine payload + checksum
     let mut full = payload;
     full.extend_from_slice(checksum);
 
     // Encode in base58
-    Ok(Some(base58::ToBase58::to_base58(full.as_slice())))
+    Ok(Some(full.as_slice().to_base58()))
 }
 
 /// Derive Cosmos address from Ed25519 public key
@@ -347,20 +341,20 @@ fn derive_cosmos_address(public_key: &[u8]) -> Result<Option<String>, Error> {
     }
 
     // Compute SHA256 hash
-    let hash = Sha256::digest(public_key);
+    let hash = sha256(public_key);
 
     // Take first 20 bytes
     let address_bytes = &hash[..20];
 
     // Convert to 5-bit groups
-    let data = bech32::convert_bits(address_bytes, 8, 5, true)
+    let data = bech32_encoding::convert_bits(address_bytes, 8, 5, true)
         .map_err(|e| Error::InvalidInput(format!("Bech32 conversion error: {}", e)))?;
 
     // Convert Vec<u8> to Vec<u5> for bech32 encoding
-    let data_u5: Vec<u5> = data.iter().map(|&b| u5::try_from_u8(b).unwrap()).collect();
+    let data_u5: Vec<u5> = bech32_encoding::bytes_to_u5(&data);
 
     // Encode as Bech32 with "cosmos" HRP
-    let address = bech32::encode("cosmos", &data_u5, Variant::Bech32)
+    let address = bech32_encoding::encode("cosmos", &data_u5, Variant::Bech32)
         .map_err(|e| Error::InvalidInput(format!("Bech32 encoding error: {}", e)))?;
 
     Ok(Some(address))

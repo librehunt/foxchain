@@ -4,11 +4,11 @@
 //! string (address, public key, or private key) belongs to.
 
 mod address;
-mod formats; // Keep for now, will remove after migration
+mod public_key;
 mod shared;
 
 use address::detection::{bitcoin, cardano, cosmos, evm, solana, substrate, tron};
-use formats::public_key; // Will migrate to public_key/ later
+use public_key::detect_public_key;
 
 /// Identify the blockchain(s) for a given input string.
 ///
@@ -63,7 +63,7 @@ pub fn identify(input: &str) -> Result<IdentificationResult, Error> {
     }
 
     // Try public key detection (after address detection, as addresses are more specific)
-    if let Some(result) = public_key::detect_public_key(input)? {
+    if let Some(result) = detect_public_key(input)? {
         return Ok(result);
     }
 
