@@ -3,9 +3,12 @@
 //! This crate provides functionality to identify which blockchain(s) an input
 //! string (address, public key, or private key) belongs to.
 
-mod formats;
+mod address;
+mod formats; // Keep for now, will remove after migration
+mod shared;
 
-use formats::{bitcoin, cardano, cosmos, evm, public_key, solana, substrate, tron};
+use address::detection::{bitcoin, cardano, cosmos, evm, solana, substrate, tron};
+use formats::public_key; // Will migrate to public_key/ later
 
 /// Identify the blockchain(s) for a given input string.
 ///
