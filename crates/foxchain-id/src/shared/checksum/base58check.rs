@@ -39,3 +39,87 @@ pub fn validate(input: &str) -> Result<Option<(u8, Vec<u8>)>, Error> {
 
     Ok(Some((version, hash)))
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_validate_valid_bitcoin_address() {
+        let input = "1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN2";
+        let result = validate(input);
+        assert!(result.is_ok());
+        let decoded = result.unwrap();
+        assert!(decoded.is_some());
+        let (version, hash) = decoded.unwrap();
+        assert_eq!(version, 0x00); // Bitcoin P2PKH version
+        assert_eq!(hash.len(), 20);
+    }
+
+    #[test]
+    fn test_validate_valid_tron_address() {
+        // Create a valid Tron address for testing
+        use crate::shared::crypto::hash::double_sha256;
+        use base58::ToBase58;
+
+        let version = 0x41u8; // Tron version
+        let address_bytes = vec![0u8; 20];
+        let payload = [&[version], address_bytes.as_slice()].concat();
+        let hash_result = double_sha256(&payload);
+        let checksum = &hash_result[..4];
+        let full_bytes = [payload, checksum.to_vec()].concat();
+        let tron_addr = full_bytes.to_base58();
+
+        let result = validate(&tron_addr);
+        assert!(result.is_ok());
+        let decoded = result.unwrap();
+        assert!(decoded.is_some());
+        let (version_byte, hash) = decoded.unwrap();
+        assert_eq!(version_byte, 0x41);
+        assert_eq!(hash.len(), 20);
+    }
+
+    #[test]
+    fn test_validate_invalid_length() {
+        let input = "1"; // Too short
+        let result = validate(input);
+        assert!(result.is_ok());
+        assert!(result.unwrap().is_none());
+    }
+
+    #[test]
+    fn test_validate_invalid_base58() {
+        let input = "0OIl"; // Invalid Base58
+        let result = validate(input);
+        assert!(result.is_ok());
+        assert!(result.unwrap().is_none());
+    }
+
+    #[test]
+    fn test_validate_invalid_checksum() {
+        // Create address with wrong checksum
+        use base58::ToBase58;
+        let version = 0x00u8;
+        let address_bytes = vec![0u8; 20];
+        let payload = [&[version], address_bytes.as_slice()].concat();
+        let mut wrong_checksum = vec![0xFFu8; 4]; // Wrong checksum
+        let full_bytes = [payload, wrong_checksum].concat();
+        let invalid_addr = full_bytes.to_base58();
+
+        let result = validate(&invalid_addr);
+        assert!(result.is_ok());
+        assert!(result.unwrap().is_none());
+    }
+
+    #[test]
+    fn test_validate_wrong_length_decoded() {
+        // Create Base58 string that decodes to wrong length
+        use base58::ToBase58;
+        let short_bytes = vec![0u8; 20]; // 20 bytes, not 25
+        let base58_short = short_bytes.to_base58();
+
+        let result = validate(&base58_short);
+        assert!(result.is_ok());
+        assert!(result.unwrap().is_none());
+    }
+}
