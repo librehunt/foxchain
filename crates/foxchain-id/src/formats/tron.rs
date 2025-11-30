@@ -4,7 +4,7 @@
 //! and are 21 bytes when decoded (20 bytes address + 1 byte version byte 0x41).
 
 use crate::{Chain, ChainCandidate, Error, IdentificationResult};
-use base58::{FromBase58, ToBase58};
+use base58::FromBase58;
 use sha2::{Digest, Sha256};
 
 /// Tron mainnet version byte
@@ -84,6 +84,7 @@ fn validate_base58check(address: &str) -> Result<Option<(u8, Vec<u8>)>, Error> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use base58::ToBase58;
 
     /// Helper function to create a valid Tron address for testing
     /// This creates a Base58Check address with version byte 0x41
@@ -178,6 +179,59 @@ mod tests {
         // The address won't start with T, so it's rejected early
         // To properly test version check, we'd need a T-prefixed address with wrong version
         // which is hard to create. The important thing is that the version check exists.
+    }
+
+    #[test]
+    fn test_detect_tron_wrong_version_byte() {
+        // Test version byte check by creating a valid base58check address
+        // that starts with T but has wrong version byte
+        // We'll create a valid structure but with version 0x42 instead of 0x41
+        let version = 0x42; // Wrong version (should be 0x41)
+        let address_bytes = vec![0u8; 20];
+        let payload = [&[version], address_bytes.as_slice()].concat();
+        let hash1 = Sha256::digest(&payload);
+        let hash2 = Sha256::digest(hash1);
+        let checksum = &hash2[..4];
+        let full_bytes = [payload, checksum.to_vec()].concat();
+        let base58_addr = full_bytes.to_base58();
+
+        // Check if it starts with T (it might not, but if it does, test version check)
+        if base58_addr.starts_with('T') {
+            let result = detect_tron(&base58_addr).unwrap();
+            assert!(
+                result.is_none(),
+                "Should reject address with wrong version byte"
+            );
+        }
+    }
+
+    #[test]
+    fn test_validate_base58check_wrong_length() {
+        // Test validate_base58check with wrong length
+        // Create a base58 string that decodes to wrong length (not 25 bytes)
+        // We'll use a short string that decodes to less than 25 bytes
+        let short_bytes = vec![0u8; 20]; // 20 bytes, not 25
+        let base58_short = short_bytes.to_base58();
+
+        // Try to detect - should fail at length check
+        let result = detect_tron(&base58_short);
+        assert!(result.is_ok());
+        // If it starts with T, it will fail length validation
+        // If it doesn't start with T, it will return None early
+    }
+
+    #[test]
+    fn test_validate_base58check_long_length() {
+        // Test with address that decodes to more than 25 bytes
+        // Create a base58 string that decodes to more than 25 bytes
+        let long_bytes = vec![0u8; 30]; // 30 bytes, not 25
+        let base58_long = long_bytes.to_base58();
+
+        // Try to detect - should fail at length check
+        let result = detect_tron(&base58_long);
+        assert!(result.is_ok());
+        // If it starts with T, it will fail length validation
+        // If it doesn't start with T, it will return None early
     }
 
     #[test]

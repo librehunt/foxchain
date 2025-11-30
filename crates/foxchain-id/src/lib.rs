@@ -162,6 +162,32 @@ mod tests {
     }
 
     #[test]
+    fn test_identify_unrecognized_format() {
+        // Test with a string that doesn't match any known format
+        // This should trigger the final error path in identify()
+        let result = identify("xyz123abc");
+        assert!(result.is_err());
+        if let Err(Error::InvalidInput(msg)) = result {
+            assert!(msg.contains("Unable to identify address format"));
+            assert!(msg.contains("xyz123abc"));
+        } else {
+            panic!("Expected InvalidInput error");
+        }
+    }
+
+    #[test]
+    fn test_identify_empty_string() {
+        // Test with empty string
+        let result = identify("");
+        assert!(result.is_err());
+        if let Err(Error::InvalidInput(msg)) = result {
+            assert!(msg.contains("Unable to identify address format"));
+        } else {
+            panic!("Expected InvalidInput error");
+        }
+    }
+
+    #[test]
     fn test_identify_tron() {
         // Test Tron address identification
         // Create a valid test Tron address
