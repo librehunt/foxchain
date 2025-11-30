@@ -5,7 +5,7 @@
 
 mod formats;
 
-use formats::{bitcoin, cosmos, evm, solana, substrate, tron};
+use formats::{bitcoin, cardano, cosmos, evm, solana, substrate, tron};
 
 /// Identify the blockchain(s) for a given input string.
 ///
@@ -54,7 +54,12 @@ pub fn identify(input: &str) -> Result<IdentificationResult, Error> {
         return Ok(result);
     }
 
-    // TODO: Add other format detectors
+    // Try Cardano addresses
+    if let Some(result) = cardano::detect_cardano(input)? {
+        return Ok(result);
+    }
+
+    // TODO: Add other format detectors (TON, Algorand, Near, etc.)
 
     Err(Error::InvalidInput(format!(
         "Unable to identify address format: {}",
@@ -118,6 +123,8 @@ pub enum Chain {
     Polkadot,
     Kusama,
     Substrate, // Generic Substrate chain
+    // Other chains
+    Cardano,
 }
 
 /// Errors that can occur during identification

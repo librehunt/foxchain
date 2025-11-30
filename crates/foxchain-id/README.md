@@ -77,9 +77,15 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
   - Account ID extraction (32 bytes)
   - See [Substrate Addresses Documentation](docs/substrate-addresses.md) for details
 
+- **Cardano Addresses**
+  - Bech32 encoding with HRP (Human Readable Part) prefixes
+  - Support for mainnet (addr, stake) and testnet (addr_test, stake_test) addresses
+  - Bech32 validation and checksum verification
+  - Case-insensitive normalization
+
 ### Planned
 
-- And more...
+- TON, Algorand, Near, and more...
 
 See [Format Documentation](docs/) for detailed information about each format.
 

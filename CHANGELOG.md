@@ -43,6 +43,11 @@
   - SS58 checksum validation using Blake2b hash
   - Proper SS58 two-byte prefix decoding (64-16383 range)
   - Account ID extraction
+- Cardano address detection and normalization in foxchain-id crate
+  - Bech32 address detection with HRP identification
+  - Support for mainnet (addr, stake) and testnet (addr_test, stake_test) addresses
+  - Bech32 validation and checksum verification
+  - Case-insensitive address normalization
 - Automated publishing workflow for all crates to crates.io
   - Supports automatic publishing on release creation
   - Supports manual publishing via workflow_dispatch
