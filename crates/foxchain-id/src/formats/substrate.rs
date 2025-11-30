@@ -193,7 +193,8 @@ mod tests {
     #[test]
     fn test_detect_substrate_unknown_prefix() {
         // Test with unknown prefix (should return generic Substrate)
-        let input = create_test_substrate_address(99);
+        // Use prefix 50 (single-byte, but not recognized: 0, 2, or 42)
+        let input = create_test_substrate_address(50);
         let result = detect_substrate(&input).unwrap();
         assert!(
             result.is_some(),
