@@ -50,7 +50,7 @@ pub fn normalize(address: &str) -> Result<String, Error> {
     let hex_part = &lowercase[2..];
 
     // Decode to bytes to validate
-    let bytes = decode(&lowercase).map_err(|e| Error::InvalidInput(e))?;
+    let bytes = decode(&lowercase).map_err(Error::InvalidInput)?;
 
     if bytes.len() != 20 {
         return Err(Error::InvalidInput("Address must be 20 bytes".to_string()));

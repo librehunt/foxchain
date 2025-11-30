@@ -22,7 +22,7 @@ pub fn detect_evm(input: &str) -> Result<Option<IdentificationResult>, Error> {
     }
 
     // Validate address length (20 bytes = 40 hex chars)
-    let bytes = hex::decode(input).map_err(|e| Error::InvalidInput(e))?;
+    let bytes = hex::decode(input).map_err(Error::InvalidInput)?;
     if bytes.len() != 20 {
         return Ok(None);
     }
