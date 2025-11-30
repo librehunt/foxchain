@@ -48,6 +48,14 @@
   - Support for mainnet (addr, stake) and testnet (addr_test, stake_test) addresses
   - Bech32 validation and checksum verification
   - Case-insensitive address normalization
+- Public key detection and address derivation in foxchain-id crate
+  - Hex public key detection (compressed/uncompressed secp256k1, Ed25519)
+  - Base58 public key detection
+  - Bech32 public key detection
+  - EVM address derivation from secp256k1 public keys (Keccak-256 hash)
+  - Bitcoin address derivation from secp256k1 public keys (P2PKH via hash160)
+  - Solana address derivation from Ed25519 public keys (direct mapping)
+  - Cosmos address derivation from Ed25519 public keys (SHA256 hash + Bech32 encoding)
 - Automated publishing workflow for all crates to crates.io
   - Supports automatic publishing on release creation
   - Supports manual publishing via workflow_dispatch
