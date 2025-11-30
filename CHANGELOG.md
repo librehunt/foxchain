@@ -29,6 +29,12 @@
   - Version byte validation (0x41 for mainnet)
   - Length validation (25 bytes when decoded: 1 version + 20 address + 4 checksum)
   - Base58Check checksum validation
+- Cosmos ecosystem address detection and normalization in foxchain-id crate
+  - Bech32 address detection with HRP (Human Readable Part) identification
+  - Support for 10+ major Cosmos chains (Cosmos Hub, Osmosis, Juno, Akash, Stargaze, Secret Network, Terra, Kava, Regen, Sentinel)
+  - HRP-to-chain mapping for chain identification
+  - Bech32 validation and checksum verification
+  - Case-insensitive address normalization
 - Automated publishing workflow for all crates to crates.io
   - Supports automatic publishing on release creation
   - Supports manual publishing via workflow_dispatch

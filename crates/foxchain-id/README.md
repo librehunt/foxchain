@@ -63,9 +63,15 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
   - Base58Check checksum validation
   - See [Tron Addresses Documentation](docs/tron-addresses.md) for details
 
+- **Cosmos Ecosystem Addresses** (Cosmos Hub, Osmosis, Juno, Akash, Stargaze, Secret Network, Terra, Kava, Regen, Sentinel)
+  - Bech32 encoding with HRP (Human Readable Part) prefixes
+  - Chain identification from HRP
+  - Bech32 validation and checksum verification
+  - Case-insensitive normalization
+  - See [Cosmos Addresses Documentation](docs/cosmos-addresses.md) for details
+
 ### Planned
 
-- Cosmos ecosystem addresses (Bech32 with HRP)
 - Substrate/Polkadot addresses (SS58)
 - And more...
 
