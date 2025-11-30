@@ -3,9 +3,12 @@
 //! This crate provides functionality to identify which blockchain(s) an input
 //! string (address, public key, or private key) belongs to.
 
-mod formats;
+mod address;
+mod public_key;
+mod shared;
 
-use formats::{bitcoin, cardano, cosmos, evm, public_key, solana, substrate, tron};
+use address::detection::{bitcoin, cardano, cosmos, evm, solana, substrate, tron};
+use public_key::detect_public_key;
 
 /// Identify the blockchain(s) for a given input string.
 ///
@@ -60,7 +63,7 @@ pub fn identify(input: &str) -> Result<IdentificationResult, Error> {
     }
 
     // Try public key detection (after address detection, as addresses are more specific)
-    if let Some(result) = public_key::detect_public_key(input)? {
+    if let Some(result) = detect_public_key(input)? {
         return Ok(result);
     }
 

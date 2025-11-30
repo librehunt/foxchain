@@ -4,8 +4,10 @@
 //! Mainnet uses "addr" for payment addresses and "stake" for stake addresses.
 //! Testnet uses "addr_test" and "stake_test".
 
+use crate::shared::encoding::bech32 as bech32_encoding;
+use crate::shared::normalize::case;
 use crate::{Chain, ChainCandidate, Error, IdentificationResult};
-use bech32::{self, Variant};
+use bech32::Variant;
 
 /// Map HRP to Cardano chain/address type
 fn identify_chain_from_hrp(hrp: &str) -> Option<Chain> {
@@ -20,7 +22,7 @@ fn identify_chain_from_hrp(hrp: &str) -> Option<Chain> {
 pub fn detect_cardano(input: &str) -> Result<Option<IdentificationResult>, Error> {
     // Cardano addresses use Bech32 encoding with specific HRPs
     // Try to decode as Bech32
-    let (hrp, data, variant) = match bech32::decode(input) {
+    let (hrp, data, variant) = match bech32_encoding::decode(input) {
         Ok(result) => result,
         Err(_) => return Ok(None), // Not valid Bech32
     };
@@ -48,7 +50,7 @@ pub fn detect_cardano(input: &str) -> Result<Option<IdentificationResult>, Error
     }
 
     // Normalize: Bech32 is case-insensitive, standard is lowercase
-    let normalized = input.to_lowercase();
+    let normalized = case::bech32_to_lowercase(input);
 
     // Calculate confidence
     let confidence = 0.95; // High confidence for recognized Cardano addresses

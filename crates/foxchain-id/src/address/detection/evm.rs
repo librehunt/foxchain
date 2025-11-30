@@ -3,9 +3,9 @@
 //! Supports EIP-55 checksum validation and multi-chain candidate generation
 //! for EVM-compatible chains.
 
+use crate::shared::checksum::eip55;
+use crate::shared::encoding::hex;
 use crate::{Chain, ChainCandidate, Error, IdentificationResult};
-use hex;
-use tiny_keccak::{Hasher, Keccak};
 
 /// Detect if input is an EVM address and return identification result
 pub fn detect_evm(input: &str) -> Result<Option<IdentificationResult>, Error> {
@@ -22,17 +22,14 @@ pub fn detect_evm(input: &str) -> Result<Option<IdentificationResult>, Error> {
     }
 
     // Validate address length (20 bytes = 40 hex chars)
-    if hex::decode(hex_part)
-        .map_err(|e| Error::InvalidInput(format!("Invalid hex: {}", e)))?
-        .len()
-        != 20
-    {
+    let bytes = hex::decode(input).map_err(Error::InvalidInput)?;
+    if bytes.len() != 20 {
         return Ok(None);
     }
 
     // Check EIP-55 checksum
-    let checksum_valid = validate_eip55_checksum(input);
-    let normalized = normalize_to_eip55(input)?;
+    let checksum_valid = eip55::validate(input);
+    let normalized = eip55::normalize(input)?;
 
     // Generate candidates for all EVM chains
     let candidates = generate_evm_candidates(checksum_valid);
@@ -41,92 +38,6 @@ pub fn detect_evm(input: &str) -> Result<Option<IdentificationResult>, Error> {
         normalized,
         candidates,
     }))
-}
-
-/// Validate EIP-55 checksum
-///
-/// EIP-55 specifies that addresses should use mixed-case checksumming:
-/// - If the i-th character is a letter, it should be uppercase if the i-th bit
-///   of the hash of the lowercase address is 1, lowercase otherwise.
-fn validate_eip55_checksum(address: &str) -> bool {
-    // If address is all lowercase or all uppercase, it's not checksummed
-    let hex_part = &address[2..];
-    if hex_part
-        .chars()
-        .all(|c| c.is_ascii_lowercase() || !c.is_alphabetic())
-    {
-        return false;
-    }
-    if hex_part
-        .chars()
-        .all(|c| c.is_ascii_uppercase() || !c.is_alphabetic())
-    {
-        return false;
-    }
-
-    // Validate checksum
-    // EIP-55: hash the lowercase address (including 0x prefix)
-    let lowercase = address.to_lowercase();
-    let hash = keccak256(lowercase.as_bytes());
-
-    for (i, char) in hex_part.chars().enumerate() {
-        if char.is_alphabetic() {
-            let byte_index = i / 2;
-            let nibble = if i % 2 == 0 {
-                hash[byte_index] >> 4
-            } else {
-                hash[byte_index] & 0x0f
-            };
-
-            let should_be_uppercase = nibble >= 8;
-            let is_uppercase = char.is_uppercase();
-
-            if should_be_uppercase != is_uppercase {
-                return false;
-            }
-        }
-    }
-
-    true
-}
-
-/// Normalize address to EIP-55 checksum format
-fn normalize_to_eip55(address: &str) -> Result<String, Error> {
-    let lowercase = address.to_lowercase();
-    let hex_part = &lowercase[2..];
-
-    // Decode to bytes to validate
-    let bytes =
-        hex::decode(hex_part).map_err(|e| Error::InvalidInput(format!("Invalid hex: {}", e)))?;
-
-    if bytes.len() != 20 {
-        return Err(Error::InvalidInput("Address must be 20 bytes".to_string()));
-    }
-
-    // Compute checksum
-    let hash = keccak256(lowercase.as_bytes());
-    let mut normalized = String::from("0x");
-
-    for (i, char) in hex_part.chars().enumerate() {
-        if char.is_alphabetic() {
-            let byte_index = i / 2;
-            let nibble = if i % 2 == 0 {
-                hash[byte_index] >> 4
-            } else {
-                hash[byte_index] & 0x0f
-            };
-
-            if nibble >= 8 {
-                normalized.push(char.to_uppercase().next().unwrap());
-            } else {
-                normalized.push(char);
-            }
-        } else {
-            normalized.push(char);
-        }
-    }
-
-    Ok(normalized)
 }
 
 /// Generate chain candidates for EVM addresses
@@ -196,15 +107,6 @@ fn generate_evm_candidates(checksum_valid: bool) -> Vec<ChainCandidate> {
     ]
 }
 
-/// Compute Keccak-256 hash
-fn keccak256(data: &[u8]) -> [u8; 32] {
-    let mut hasher = Keccak::v256();
-    hasher.update(data);
-    let mut output = [0u8; 32];
-    hasher.finalize(&mut output);
-    output
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -234,16 +136,16 @@ mod tests {
     fn test_validate_eip55_checksum() {
         // Test that our normalization produces valid checksums
         let lowercase = "0xd8da6bf26964af9d7eed9e03e53415d37aa96045";
-        let normalized = normalize_to_eip55(lowercase).unwrap();
-        assert!(validate_eip55_checksum(&normalized));
+        let normalized = eip55::normalize(lowercase).unwrap();
+        assert!(eip55::validate(&normalized));
 
         // Lowercase (no checksum)
-        assert!(!validate_eip55_checksum(
+        assert!(!eip55::validate(
             "0xd8da6bf26964af9d7eed9e03e53415d37aa96045"
         ));
 
         // All uppercase (no checksum)
-        assert!(!validate_eip55_checksum(
+        assert!(!eip55::validate(
             "0xD8DA6BF26964AF9D7EED9E03E53415D37AA96045"
         ));
     }
@@ -252,21 +154,21 @@ mod tests {
     fn test_normalize_to_eip55() {
         // Test normalization produces checksummed format
         let lowercase = "0xd8da6bf26964af9d7eed9e03e53415d37aa96045";
-        let normalized = normalize_to_eip55(lowercase).unwrap();
+        let normalized = eip55::normalize(lowercase).unwrap();
         // Verify it's different from input (checksummed)
         assert_ne!(normalized, lowercase);
         assert!(normalized.starts_with("0x"));
         assert_eq!(normalized.len(), 42);
         // Verify it validates as correct checksum
-        assert!(validate_eip55_checksum(&normalized));
+        assert!(eip55::validate(&normalized));
 
         // Test with another address
         let lowercase2 = "0x742d35cc6634c0532925a3b844bc454e4438f44e";
-        let normalized2 = normalize_to_eip55(lowercase2).unwrap();
+        let normalized2 = eip55::normalize(lowercase2).unwrap();
         assert_ne!(normalized2, lowercase2);
         assert!(normalized2.starts_with("0x"));
         assert_eq!(normalized2.len(), 42);
-        assert!(validate_eip55_checksum(&normalized2));
+        assert!(eip55::validate(&normalized2));
     }
 
     #[test]

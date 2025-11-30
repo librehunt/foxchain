@@ -3,8 +3,8 @@
 //! Solana uses Base58 encoding for addresses (public keys). Addresses are 32-44 bytes
 //! when decoded, typically 32 bytes for standard addresses.
 
+use crate::shared::encoding::base58;
 use crate::{Chain, ChainCandidate, Error, IdentificationResult};
-use base58::FromBase58;
 
 /// Detect if input is a Solana address and return identification result
 pub fn detect_solana(input: &str) -> Result<Option<IdentificationResult>, Error> {
@@ -12,7 +12,7 @@ pub fn detect_solana(input: &str) -> Result<Option<IdentificationResult>, Error>
     // They don't have a specific prefix, so we rely on length and base58 validation
 
     // Try to decode as base58
-    let decoded = match input.from_base58() {
+    let decoded = match base58::decode(input) {
         Ok(bytes) => bytes,
         Err(_) => return Ok(None), // Not valid base58
     };
@@ -77,16 +77,6 @@ mod tests {
         assert_eq!(id_result.candidates[0].chain, Chain::Solana);
         assert_eq!(id_result.candidates[0].confidence, 0.90);
         assert_eq!(id_result.normalized, input);
-    }
-
-    #[test]
-    fn test_detect_solana_non_standard_length() {
-        // Non-standard length (but still valid)
-        // Note: This is a placeholder test - actual Solana addresses are typically 32 bytes
-        // We test that the function accepts 32-44 byte range
-        let input = "9WzDXwBbmkg8ZTbNMqUxvQRAyrZzDsGYdLVL9zYtAWWM"; // 32 bytes
-        let result = detect_solana(input).unwrap();
-        assert!(result.is_some());
     }
 
     #[test]

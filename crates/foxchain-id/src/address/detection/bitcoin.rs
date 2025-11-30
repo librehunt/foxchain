@@ -2,10 +2,10 @@
 //!
 //! Supports P2PKH, P2SH, and Bech32 address formats for Bitcoin, Litecoin, and Dogecoin.
 
+use crate::shared::checksum::base58check;
+use crate::shared::encoding::bech32 as bech32_encoding;
 use crate::{Chain, ChainCandidate, Error, IdentificationResult};
-use base58::FromBase58;
 use bech32::{self, Variant};
-use sha2::{Digest, Sha256};
 
 /// Detect if input is a Bitcoin ecosystem address and return identification result
 pub fn detect_bitcoin(input: &str) -> Result<Option<IdentificationResult>, Error> {
@@ -36,7 +36,7 @@ fn detect_bech32(input: &str) -> Result<Option<IdentificationResult>, Error> {
     for hrp in &hrps {
         if input_lower.starts_with(hrp) {
             // Validate Bech32 encoding
-            match bech32::decode(input) {
+            match bech32_encoding::decode(input) {
                 Ok((decoded_hrp, _data, variant)) => {
                     if variant != Variant::Bech32 {
                         continue;
@@ -72,8 +72,8 @@ fn detect_p2pkh(input: &str) -> Result<Option<IdentificationResult>, Error> {
         return Ok(None);
     }
 
-    // Validate Base58Check
-    let decoded = validate_base58check(input)?;
+    // Validate Base58Check using shared utility
+    let decoded = base58check::validate(input)?;
     if decoded.is_none() {
         return Ok(None);
     }
@@ -103,8 +103,8 @@ fn detect_p2sh(input: &str) -> Result<Option<IdentificationResult>, Error> {
         return Ok(None);
     }
 
-    // Validate Base58Check
-    let decoded = validate_base58check(input)?;
+    // Validate Base58Check using shared utility
+    let decoded = base58check::validate(input)?;
     if decoded.is_none() {
         return Ok(None);
     }
@@ -126,36 +126,6 @@ fn detect_p2sh(input: &str) -> Result<Option<IdentificationResult>, Error> {
             reasoning: format!("P2SH address (version byte 0x{:02x})", version),
         }],
     }))
-}
-
-/// Validate Base58Check encoding and return (version_byte, hash)
-fn validate_base58check(input: &str) -> Result<Option<(u8, Vec<u8>)>, Error> {
-    // Decode Base58
-    let decoded = input
-        .from_base58()
-        .map_err(|_| Error::InvalidInput("Invalid Base58 encoding".to_string()))?;
-
-    // Must be 25 bytes (1 version + 20 hash + 4 checksum)
-    if decoded.len() != 25 {
-        return Ok(None);
-    }
-
-    // Extract components
-    let version = decoded[0];
-    let hash = decoded[1..21].to_vec();
-    let checksum = &decoded[21..25];
-
-    // Verify checksum
-    let payload = [&[version], hash.as_slice()].concat();
-    let hash1 = Sha256::digest(&payload);
-    let hash2 = Sha256::digest(hash1);
-    let expected_checksum = &hash2[..4];
-
-    if checksum != expected_checksum {
-        return Ok(None);
-    }
-
-    Ok(Some((version, hash)))
 }
 
 /// Identify chain from version byte
@@ -232,7 +202,7 @@ mod tests {
     fn test_validate_base58check() {
         // Valid Bitcoin P2PKH address
         let input = "1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa";
-        let result = validate_base58check(input);
+        let result = base58check::validate(input);
         assert!(result.is_ok());
         assert!(result.unwrap().is_some());
     }
@@ -241,7 +211,7 @@ mod tests {
     fn test_validate_base58check_invalid() {
         // Invalid checksum
         let input = "1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNb"; // Changed last char
-        let result = validate_base58check(input);
+        let result = base58check::validate(input);
         assert!(result.is_ok());
         assert!(result.unwrap().is_none());
     }
@@ -329,7 +299,7 @@ mod tests {
     fn test_base58check_wrong_length() {
         // Address with wrong length should fail
         let input = "1"; // Too short
-        let result = validate_base58check(input);
+        let result = base58check::validate(input);
         assert!(result.is_ok());
         assert!(result.unwrap().is_none());
     }

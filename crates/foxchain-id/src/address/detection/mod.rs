@@ -1,10 +1,9 @@
-//! Address format detection modules
+//! Address detection modules
 
 pub mod bitcoin;
 pub mod cardano;
 pub mod cosmos;
 pub mod evm;
-pub mod public_key;
 pub mod solana;
 pub mod substrate;
 pub mod tron;
