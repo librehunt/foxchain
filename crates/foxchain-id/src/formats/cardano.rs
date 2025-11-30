@@ -188,8 +188,13 @@ mod tests {
     #[test]
     fn test_identify_cardano() {
         // Test integration with identify() function
+        // Use a longer address to avoid Solana detection (Solana checks for 32-44 bytes)
         use crate::identify;
-        let input = create_test_cardano_address("addr");
+        use bech32::ToBase32;
+        // Create a longer Cardano address (more than 44 bytes when decoded)
+        // Bech32 encodes in 5-bit groups, so 60 bytes = 96 5-bit groups
+        let data = vec![0u8; 60]; // 60 bytes, which is more than Solana's max
+        let input = bech32::encode("addr", data.to_base32(), Variant::Bech32).unwrap();
         let result = identify(&input);
         assert!(
             result.is_ok(),
