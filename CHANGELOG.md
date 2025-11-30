@@ -40,6 +40,7 @@
   - Support for major Substrate chains (Polkadot, Kusama, Generic Substrate)
   - Prefix-to-chain mapping for chain identification
   - SS58 structure validation (prefix + 32-byte account ID + 2-byte checksum)
+  - SS58 checksum validation using Blake2b hash
   - Account ID extraction
 - Automated publishing workflow for all crates to crates.io
   - Supports automatic publishing on release creation
