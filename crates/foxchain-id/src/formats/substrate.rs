@@ -393,9 +393,12 @@ mod tests {
         prefix_bytes.extend(account_id);
         prefix_bytes.extend(checksum);
         let input = prefix_bytes.to_base58();
-        
+
         let result = detect_substrate(&input).unwrap();
-        assert!(result.is_some(), "Should detect Substrate address with two-byte prefix");
+        assert!(
+            result.is_some(),
+            "Should detect Substrate address with two-byte prefix"
+        );
         let id_result = result.unwrap();
         // Should be detected as generic Substrate (prefix 100 not in mapping)
         assert_eq!(id_result.candidates[0].chain, Chain::Substrate);
