@@ -5,7 +5,7 @@
 
 mod formats;
 
-use formats::{bitcoin, evm, solana, tron};
+use formats::{bitcoin, cosmos, evm, solana, tron};
 
 /// Identify the blockchain(s) for a given input string.
 ///
@@ -44,7 +44,12 @@ pub fn identify(input: &str) -> Result<IdentificationResult, Error> {
         return Ok(result);
     }
 
-    // TODO: Add other format detectors (Cosmos, Substrate, etc.)
+    // Try Cosmos addresses
+    if let Some(result) = cosmos::detect_cosmos(input)? {
+        return Ok(result);
+    }
+
+    // TODO: Add other format detectors (Substrate, etc.)
 
     Err(Error::InvalidInput(format!(
         "Unable to identify address format: {}",
@@ -92,9 +97,19 @@ pub enum Chain {
     Dogecoin,
     // Other chains
     Solana,
-    Cosmos,
-    Polkadot,
     Tron,
+    // Cosmos ecosystem
+    CosmosHub,
+    Osmosis,
+    Juno,
+    Akash,
+    Stargaze,
+    SecretNetwork,
+    Terra,
+    Kava,
+    Regen,
+    Sentinel,
+    Polkadot,
 }
 
 /// Errors that can occur during identification

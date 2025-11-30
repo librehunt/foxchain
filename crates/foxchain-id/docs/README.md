@@ -10,10 +10,10 @@ This directory contains detailed documentation about various blockchain address 
 - [Bitcoin Addresses](bitcoin-addresses.md) - Bitcoin, Litecoin, Dogecoin (P2PKH, P2SH, Bech32)
 - [Solana Addresses](solana-addresses.md) - Solana public keys (base58)
 - [Tron Addresses](tron-addresses.md) - Tron addresses (base58check)
+- [Cosmos Addresses](cosmos-addresses.md) - Cosmos ecosystem (bech32 with HRP)
 
 ### Planned Formats
 
-- [Cosmos Addresses](cosmos-addresses.md) - Cosmos ecosystem (bech32 with HRP)
 - [Substrate Addresses](substrate-addresses.md) - Polkadot, Kusama, and parachains (SS58)
 
 ## Format Documentation Structure
