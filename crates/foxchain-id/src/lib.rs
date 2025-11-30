@@ -5,7 +5,7 @@
 
 mod formats;
 
-use formats::{bitcoin, evm};
+use formats::{bitcoin, evm, solana};
 
 /// Identify the blockchain(s) for a given input string.
 ///
@@ -34,7 +34,12 @@ pub fn identify(input: &str) -> Result<IdentificationResult, Error> {
         return Ok(result);
     }
 
-    // TODO: Add other format detectors (Solana, Cosmos, etc.)
+    // Try Solana addresses
+    if let Some(result) = solana::detect_solana(input)? {
+        return Ok(result);
+    }
+
+    // TODO: Add other format detectors (Cosmos, Substrate, Tron, etc.)
 
     Err(Error::InvalidInput(format!(
         "Unable to identify address format: {}",
