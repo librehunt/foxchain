@@ -276,7 +276,8 @@ fn derive_evm_address(public_key: &[u8]) -> Result<Option<String>, Error> {
     let address_bytes = &hash[12..32];
 
     // Format as hex with 0x prefix
-    Ok(Some(format!("0x{}", hex::encode(address_bytes))))
+    use crate::shared::encoding::hex;
+    Ok(Some(hex::encode(address_bytes)))
 }
 
 /// Derive Bitcoin addresses from secp256k1 public key
