@@ -153,5 +153,33 @@ mod tests {
     fn test_identify_invalid_address() {
         let result = identify("not-an-address");
         assert!(result.is_err());
+        // Verify error message contains the input
+        if let Err(Error::InvalidInput(msg)) = result {
+            assert!(msg.contains("not-an-address"));
+        } else {
+            panic!("Expected InvalidInput error");
+        }
+    }
+
+    #[test]
+    fn test_identify_tron() {
+        // Test Tron address identification
+        // Create a valid test Tron address
+        use base58::ToBase58;
+        use sha2::{Digest, Sha256};
+
+        let version = 0x41u8;
+        let address_bytes = vec![0u8; 20];
+        let payload = [&[version], address_bytes.as_slice()].concat();
+        let hash1 = Sha256::digest(&payload);
+        let hash2 = Sha256::digest(hash1);
+        let checksum = &hash2[..4];
+        let full_bytes = [payload, checksum.to_vec()].concat();
+        let tron_addr = full_bytes.to_base58();
+
+        let result = identify(&tron_addr);
+        assert!(result.is_ok(), "Should identify Tron address");
+        let id_result = result.unwrap();
+        assert_eq!(id_result.candidates[0].chain, Chain::Tron);
     }
 }
