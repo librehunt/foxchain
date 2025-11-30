@@ -37,8 +37,38 @@ fn validate_ss58_checksum(prefix: &[u8], account_id: &[u8], checksum: &[u8]) -> 
     checksum == expected_checksum.as_slice()
 }
 
+/// Decode SS58 prefix from decoded bytes
+/// Returns (prefix_value, prefix_length_in_bytes)
+///
+/// SS58 prefix encoding:
+/// - Single-byte prefixes (0-63): The prefix is the first byte directly
+/// - Two-byte prefixes (64-16383):
+///   - First byte: `0x40 + (prefix >> 8) & 0x3f` (bits 8-13 of prefix)
+///   - Second byte: `prefix & 0xff` (bits 0-7 of prefix)
+///   - Decoding: `prefix = ((first_byte & 0x3f) << 8) | second_byte`
+fn decode_ss58_prefix(decoded: &[u8]) -> Option<(u16, usize)> {
+    if decoded.is_empty() {
+        return None;
+    }
+
+    if decoded[0] < 64 {
+        // Single-byte prefix (0-63)
+        Some((decoded[0] as u16, 1))
+    } else if decoded.len() >= 2 && decoded[0] < 128 {
+        // Two-byte prefix (64-16383)
+        // Format: ((first_byte & 0x3f) << 8) | second_byte
+        let first_byte = decoded[0] & 0x3f; // Extract bits 0-5 (the prefix bits)
+        let second_byte = decoded[1];
+        let prefix = ((first_byte as u16) << 8) | (second_byte as u16);
+        Some((prefix, 2))
+    } else {
+        None
+    }
+}
+
 /// Map SS58 prefix to Substrate chain
-fn identify_chain_from_prefix(prefix: u8) -> Option<Chain> {
+/// Supports both single-byte (u8) and two-byte (u16) prefixes
+fn identify_chain_from_prefix(prefix: u16) -> Option<Chain> {
     match prefix {
         0 => Some(Chain::Polkadot),
         2 => Some(Chain::Kusama),
@@ -68,21 +98,10 @@ pub fn detect_substrate(input: &str) -> Result<Option<IdentificationResult>, Err
         return Ok(None);
     }
 
-    // Extract prefix (SS58 uses variable-length prefix encoding)
-    // For single-byte prefixes (0-63), the prefix is the first byte
-    // For two-byte prefixes (64-16383), the first byte indicates it's a two-byte prefix
-    let prefix = if decoded[0] < 64 {
-        // Single-byte prefix
-        decoded[0]
-    } else if decoded.len() >= 36 && decoded[0] < 128 {
-        // Two-byte prefix: first byte indicates two-byte encoding
-        // Format: ((first_byte & 0x3f) << 8) | second_byte
-        // For simplicity, we'll use the first byte for chain identification
-        // Full implementation would decode the two-byte prefix properly
-        // For now, we'll treat it as a generic Substrate address
-        decoded[0]
-    } else {
-        return Ok(None);
+    // Decode SS58 prefix (handles both single-byte and two-byte prefixes)
+    let (prefix_value, prefix_len) = match decode_ss58_prefix(&decoded) {
+        Some((p, len)) => (p, len),
+        None => return Ok(None),
     };
 
     // Validate SS58 structure
@@ -92,7 +111,7 @@ pub fn detect_substrate(input: &str) -> Result<Option<IdentificationResult>, Err
         return Ok(None);
     }
 
-    let account_id_start = if prefix < 64 { 1 } else { 2 };
+    let account_id_start = prefix_len;
 
     // Determine checksum length based on total decoded length
     // SS58 checksum length rules (from Substrate spec):
@@ -127,11 +146,7 @@ pub fn detect_substrate(input: &str) -> Result<Option<IdentificationResult>, Err
     }
 
     // Extract prefix bytes for checksum validation
-    let prefix_bytes = if prefix < 64 {
-        &decoded[0..1]
-    } else {
-        &decoded[0..2]
-    };
+    let prefix_bytes = &decoded[0..prefix_len];
 
     // Validate SS58 checksum using Blake2b
     if !validate_ss58_checksum(prefix_bytes, account_id, checksum) {
@@ -139,7 +154,7 @@ pub fn detect_substrate(input: &str) -> Result<Option<IdentificationResult>, Err
     }
 
     // Check if prefix matches a known chain
-    let chain = match identify_chain_from_prefix(prefix) {
+    let chain = match identify_chain_from_prefix(prefix_value) {
         Some(c) => c,
         None => {
             // Unknown prefix, but might still be a valid Substrate address
@@ -153,7 +168,7 @@ pub fn detect_substrate(input: &str) -> Result<Option<IdentificationResult>, Err
     let normalized = input.to_string();
 
     // Calculate confidence based on prefix recognition
-    let confidence = if identify_chain_from_prefix(prefix).is_some() {
+    let confidence = if identify_chain_from_prefix(prefix_value).is_some() {
         0.90 // High confidence for recognized chains
     } else {
         0.75 // Lower confidence for unknown prefixes
@@ -164,7 +179,7 @@ pub fn detect_substrate(input: &str) -> Result<Option<IdentificationResult>, Err
         candidates: vec![ChainCandidate {
             chain,
             confidence,
-            reasoning: format!("Substrate address (SS58, prefix: {})", prefix),
+            reasoning: format!("Substrate address (SS58, prefix: {})", prefix_value),
         }],
     }))
 }
@@ -294,6 +309,97 @@ mod tests {
         assert_eq!(identify_chain_from_prefix(2), Some(Chain::Kusama));
         assert_eq!(identify_chain_from_prefix(42), Some(Chain::Substrate));
         assert_eq!(identify_chain_from_prefix(99), None);
+    }
+
+    #[test]
+    fn test_decode_ss58_prefix_single_byte() {
+        // Test single-byte prefix (0-63)
+        let decoded = vec![0u8, 1u8, 2u8]; // Prefix 0
+        let result = decode_ss58_prefix(&decoded);
+        assert!(result.is_some());
+        let (prefix, len) = result.unwrap();
+        assert_eq!(prefix, 0);
+        assert_eq!(len, 1);
+
+        // Test prefix 42
+        let decoded = vec![42u8];
+        let result = decode_ss58_prefix(&decoded);
+        assert!(result.is_some());
+        let (prefix, len) = result.unwrap();
+        assert_eq!(prefix, 42);
+        assert_eq!(len, 1);
+    }
+
+    #[test]
+    fn test_decode_ss58_prefix_two_byte() {
+        // Test two-byte prefix
+        // Example: prefix 100 (0x64)
+        // Encoding: first_byte = 0x40 + (100 >> 8) & 0x3f = 0x40 + 0 = 0x40
+        //          second_byte = 100 & 0xff = 0x64
+        // So encoded as [0x40, 0x64]
+        let decoded = vec![0x40u8, 0x64u8];
+        let result = decode_ss58_prefix(&decoded);
+        assert!(result.is_some());
+        let (prefix, len) = result.unwrap();
+        assert_eq!(prefix, 100);
+        assert_eq!(len, 2);
+
+        // Test prefix 200 (0xC8)
+        // Encoding: first_byte = 0x40 + (200 >> 8) & 0x3f = 0x40 + 0 = 0x40
+        //          second_byte = 200 & 0xff = 0xC8
+        let decoded = vec![0x40u8, 0xC8u8];
+        let result = decode_ss58_prefix(&decoded);
+        assert!(result.is_some());
+        let (prefix, len) = result.unwrap();
+        assert_eq!(prefix, 200);
+        assert_eq!(len, 2);
+
+        // Test prefix 1000 (0x3E8)
+        // Encoding: first_byte = 0x40 + (1000 >> 8) & 0x3f = 0x40 + 3 = 0x43
+        //          second_byte = 1000 & 0xff = 0xE8
+        let decoded = vec![0x43u8, 0xE8u8];
+        let result = decode_ss58_prefix(&decoded);
+        assert!(result.is_some());
+        let (prefix, len) = result.unwrap();
+        assert_eq!(prefix, 1000);
+        assert_eq!(len, 2);
+    }
+
+    #[test]
+    fn test_decode_ss58_prefix_invalid() {
+        // Test with empty slice
+        let decoded = vec![];
+        let result = decode_ss58_prefix(&decoded);
+        assert!(result.is_none());
+
+        // Test with prefix >= 128 (invalid)
+        let decoded = vec![130u8];
+        let result = decode_ss58_prefix(&decoded);
+        assert!(result.is_none());
+
+        // Test two-byte prefix with insufficient length
+        let decoded = vec![0x40u8]; // Only one byte, but indicates two-byte prefix
+        let result = decode_ss58_prefix(&decoded);
+        assert!(result.is_none());
+    }
+
+    #[test]
+    fn test_detect_substrate_two_byte_prefix_with_decoding() {
+        // Test with two-byte prefix properly decoded
+        // Create address with prefix 100 (two-byte)
+        let mut prefix_bytes = vec![0x40u8, 0x64u8]; // Prefix 100 encoded
+        let account_id = vec![0u8; 32];
+        let checksum = calculate_ss58_checksum(&prefix_bytes, &account_id, 2);
+        prefix_bytes.extend(account_id);
+        prefix_bytes.extend(checksum);
+        let input = prefix_bytes.to_base58();
+        
+        let result = detect_substrate(&input).unwrap();
+        assert!(result.is_some(), "Should detect Substrate address with two-byte prefix");
+        let id_result = result.unwrap();
+        // Should be detected as generic Substrate (prefix 100 not in mapping)
+        assert_eq!(id_result.candidates[0].chain, Chain::Substrate);
+        assert_eq!(id_result.candidates[0].confidence, 0.75);
     }
 
     #[test]
