@@ -24,6 +24,11 @@
   - Length validation (standard 32 bytes, up to 44 bytes)
   - Prefix filtering to avoid conflicts with Bitcoin and EVM addresses
   - Confidence scoring based on address length
+- Tron address detection and normalization in foxchain-id crate
+  - Base58Check address detection (starts with T)
+  - Version byte validation (0x41 for mainnet)
+  - Length validation (25 bytes when decoded: 1 version + 20 address + 4 checksum)
+  - Base58Check checksum validation
 - Automated publishing workflow for all crates to crates.io
   - Supports automatic publishing on release creation
   - Supports manual publishing via workflow_dispatch

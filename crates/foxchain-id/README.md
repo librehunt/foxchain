@@ -56,11 +56,17 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
   - Prefix filtering to avoid conflicts with other chains
   - See [Solana Addresses Documentation](docs/solana-addresses.md) for details
 
+- **Tron Addresses**
+  - Base58Check encoding (starts with T)
+  - Version byte validation (0x41 for mainnet)
+  - Length validation (25 bytes when decoded)
+  - Base58Check checksum validation
+  - See [Tron Addresses Documentation](docs/tron-addresses.md) for details
+
 ### Planned
 
 - Cosmos ecosystem addresses (Bech32 with HRP)
 - Substrate/Polkadot addresses (SS58)
-- Tron addresses (Base58Check)
 - And more...
 
 See [Format Documentation](docs/) for detailed information about each format.
