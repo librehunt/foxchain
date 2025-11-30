@@ -140,12 +140,62 @@ mod tests {
     }
 
     #[test]
+    fn test_detect_cardano_stake_testnet() {
+        // Test with testnet stake address (stake_test)
+        let input = create_test_cardano_address("stake_test");
+        let result = detect_cardano(&input).unwrap();
+        assert!(
+            result.is_some(),
+            "Should detect Cardano testnet stake address"
+        );
+        let id_result = result.unwrap();
+        assert_eq!(id_result.candidates[0].chain, Chain::Cardano);
+    }
+
+    #[test]
+    fn test_detect_cardano_bech32m_variant() {
+        // Test with Bech32m variant (should be rejected, Cardano uses Bech32)
+        use bech32::ToBase32;
+        let data = vec![0u8; 20];
+        let input = bech32::encode("addr", data.to_base32(), Variant::Bech32m).unwrap();
+        let result = detect_cardano(&input).unwrap();
+        assert!(result.is_none(), "Should reject Bech32m variant");
+    }
+
+    #[test]
+    fn test_detect_cardano_too_short() {
+        // Test with data too short (< 20 5-bit groups)
+        use bech32::ToBase32;
+        let data = vec![0u8; 5]; // Too short
+        let input = bech32::encode("addr", data.to_base32(), Variant::Bech32).unwrap();
+        let result = detect_cardano(&input).unwrap();
+        assert!(
+            result.is_none(),
+            "Should reject address with too short data"
+        );
+    }
+
+    #[test]
+    fn test_detect_cardano_too_long() {
+        // Test with data too long (> 100 5-bit groups)
+        use bech32::ToBase32;
+        let data = vec![0u8; 150]; // Too long
+        let input = bech32::encode("addr", data.to_base32(), Variant::Bech32).unwrap();
+        let result = detect_cardano(&input).unwrap();
+        assert!(result.is_none(), "Should reject address with too long data");
+    }
+
+    #[test]
     fn test_identify_cardano() {
         // Test integration with identify() function
         use crate::identify;
         let input = create_test_cardano_address("addr");
         let result = identify(&input);
-        // This may fail if the address is invalid, but tests integration
-        assert!(result.is_ok() || result.is_err());
+        assert!(
+            result.is_ok(),
+            "Should successfully identify Cardano address"
+        );
+        let id_result = result.unwrap();
+        assert_eq!(id_result.candidates[0].chain, Chain::Cardano);
     }
 }
