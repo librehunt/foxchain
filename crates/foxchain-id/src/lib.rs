@@ -5,7 +5,7 @@
 
 mod formats;
 
-use formats::{bitcoin, cosmos, evm, solana, substrate, tron};
+use formats::{bitcoin, cardano, cosmos, evm, solana, substrate, tron};
 
 /// Identify the blockchain(s) for a given input string.
 ///
