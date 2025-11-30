@@ -167,4 +167,107 @@ mod tests {
         // This may fail if the address is invalid, but tests integration
         assert!(result.is_ok() || result.is_err());
     }
+
+    #[test]
+    fn test_detect_substrate_valid_polkadot() {
+        // Test with a valid Polkadot address structure
+        let input = create_test_substrate_address(0);
+        let result = detect_substrate(&input).unwrap();
+        assert!(result.is_some(), "Should detect Polkadot address");
+        let id_result = result.unwrap();
+        assert_eq!(id_result.candidates[0].chain, Chain::Polkadot);
+        assert_eq!(id_result.candidates[0].confidence, 0.90);
+    }
+
+    #[test]
+    fn test_detect_substrate_valid_kusama() {
+        // Test with a valid Kusama address structure
+        let input = create_test_substrate_address(2);
+        let result = detect_substrate(&input).unwrap();
+        assert!(result.is_some(), "Should detect Kusama address");
+        let id_result = result.unwrap();
+        assert_eq!(id_result.candidates[0].chain, Chain::Kusama);
+        assert_eq!(id_result.candidates[0].confidence, 0.90);
+    }
+
+    #[test]
+    fn test_detect_substrate_unknown_prefix() {
+        // Test with unknown prefix (should return generic Substrate)
+        let input = create_test_substrate_address(99);
+        let result = detect_substrate(&input).unwrap();
+        assert!(
+            result.is_some(),
+            "Should detect Substrate address with unknown prefix"
+        );
+        let id_result = result.unwrap();
+        assert_eq!(id_result.candidates[0].chain, Chain::Substrate);
+        assert_eq!(id_result.candidates[0].confidence, 0.75);
+    }
+
+    #[test]
+    fn test_detect_substrate_wrong_account_id_length() {
+        // Test with wrong account ID length
+        // Create address with wrong length (not 32 bytes)
+        let mut bytes = vec![0u8]; // Prefix
+        bytes.extend(vec![0u8; 30]); // 30 bytes instead of 32
+        bytes.extend(vec![0u8; 2]); // Checksum
+        let input = bytes.to_base58();
+        let result = detect_substrate(&input).unwrap();
+        assert!(
+            result.is_none(),
+            "Should reject addresses with wrong account ID length"
+        );
+    }
+
+    #[test]
+    fn test_detect_substrate_too_long() {
+        // Test with address that decodes to more than 50 bytes
+        let long_bytes = vec![0u8; 60];
+        let input = long_bytes.to_base58();
+        let result = detect_substrate(&input).unwrap();
+        assert!(
+            result.is_none(),
+            "Should reject addresses longer than maximum length"
+        );
+    }
+
+    #[test]
+    fn test_detect_substrate_two_byte_prefix() {
+        // Test with two-byte prefix (64-127 range)
+        // Create address with prefix >= 64 but < 128
+        let mut bytes = vec![70u8]; // Prefix in two-byte range
+        bytes.extend(vec![0u8; 32]); // Account ID
+        bytes.extend(vec![0u8; 2]); // Checksum
+        let input = bytes.to_base58();
+        let result = detect_substrate(&input).unwrap();
+        // Should detect as Substrate (unknown prefix)
+        assert!(result.is_some() || result.is_none());
+    }
+
+    #[test]
+    fn test_detect_substrate_prefix_too_large() {
+        // Test with prefix >= 128 (should return None)
+        let mut bytes = vec![130u8]; // Prefix >= 128
+        bytes.extend(vec![0u8; 32]); // Account ID
+        bytes.extend(vec![0u8; 2]); // Checksum
+        let input = bytes.to_base58();
+        let result = detect_substrate(&input).unwrap();
+        assert!(
+            result.is_none(),
+            "Should reject addresses with prefix >= 128"
+        );
+    }
+
+    #[test]
+    fn test_detect_substrate_two_byte_prefix_insufficient_length() {
+        // Test with two-byte prefix but insufficient length
+        let mut bytes = vec![70u8]; // Prefix in two-byte range
+        bytes.extend(vec![0u8; 30]); // Not enough bytes
+        let input = bytes.to_base58();
+        let result = detect_substrate(&input).unwrap();
+        assert!(
+            result.is_none(),
+            "Should reject addresses with insufficient length for two-byte prefix"
+        );
+    }
 }

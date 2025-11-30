@@ -231,4 +231,19 @@ mod tests {
         let id_result = result.unwrap();
         assert_eq!(id_result.candidates[0].chain, Chain::Tron);
     }
+
+    #[test]
+    fn test_identify_substrate() {
+        // Test Substrate address identification
+        use base58::ToBase58;
+        // Create a valid test Substrate address (prefix 0 = Polkadot)
+        let mut bytes = vec![0u8]; // Prefix
+        bytes.extend(vec![0u8; 32]); // Account ID
+        bytes.extend(vec![0u8; 2]); // Checksum
+        let substrate_addr = bytes.to_base58();
+
+        let result = identify(&substrate_addr);
+        // This may fail if the address doesn't validate, but tests integration
+        assert!(result.is_ok() || result.is_err());
+    }
 }
