@@ -10,19 +10,19 @@ use base58::FromBase58;
 pub fn detect_solana(input: &str) -> Result<Option<IdentificationResult>, Error> {
     // Solana addresses are base58 encoded
     // They don't have a specific prefix, so we rely on length and base58 validation
-    
+
     // Try to decode as base58
     let decoded = match input.from_base58() {
         Ok(bytes) => bytes,
         Err(_) => return Ok(None), // Not valid base58
     };
-    
+
     // Solana addresses are 32-44 bytes when decoded
     // Standard addresses are exactly 32 bytes
     if decoded.len() < 32 || decoded.len() > 44 {
         return Ok(None);
     }
-    
+
     // Additional validation: check if it looks like a Solana address
     // Solana addresses are typically 32-44 characters in base58
     // and don't start with common prefixes from other chains
@@ -30,17 +30,17 @@ pub fn detect_solana(input: &str) -> Result<Option<IdentificationResult>, Error>
         // These are likely Bitcoin addresses (P2PKH/P2SH)
         return Ok(None);
     }
-    
+
     if input.starts_with("0x") {
         // This is an EVM address
         return Ok(None);
     }
-    
+
     if input.starts_with("bc1") || input.starts_with("ltc1") || input.starts_with("lt1") {
         // This is a Bech32 address
         return Ok(None);
     }
-    
+
     // Calculate confidence based on length
     // Standard 32-byte addresses have higher confidence
     let confidence = if decoded.len() == 32 {
@@ -48,20 +48,17 @@ pub fn detect_solana(input: &str) -> Result<Option<IdentificationResult>, Error>
     } else {
         0.75 // Lower confidence for non-standard lengths
     };
-    
+
     // Normalize: Solana addresses are case-sensitive, but we keep as-is
     // (Base58 is case-sensitive, so we preserve the original)
     let normalized = input.to_string();
-    
+
     Ok(Some(IdentificationResult {
         normalized,
         candidates: vec![ChainCandidate {
             chain: Chain::Solana,
             confidence,
-            reasoning: format!(
-                "Solana address (Base58, {} bytes)",
-                decoded.len()
-            ),
+            reasoning: format!("Solana address (Base58, {} bytes)", decoded.len()),
         }],
     }))
 }
@@ -97,7 +94,10 @@ mod tests {
         // Too short to be a Solana address
         let input = "9WzDXwBbmkg8ZTbNMqUxvQRAyrZzDsGYdLVL9zYtAW"; // Less than 32 bytes
         let result = detect_solana(input).unwrap();
-        assert!(result.is_none(), "Should reject addresses shorter than 32 bytes");
+        assert!(
+            result.is_none(),
+            "Should reject addresses shorter than 32 bytes"
+        );
     }
 
     #[test]
@@ -105,7 +105,10 @@ mod tests {
         // Too long to be a Solana address
         let input = "9WzDXwBbmkg8ZTbNMqUxvQRAyrZzDsGYdLVL9zYtAWWM9WzDXwBbmkg8ZTbNMqUxvQRAyrZzDsGYdLVL9zYtAWWM"; // More than 44 bytes
         let result = detect_solana(input).unwrap();
-        assert!(result.is_none(), "Should reject addresses longer than 44 bytes");
+        assert!(
+            result.is_none(),
+            "Should reject addresses longer than 44 bytes"
+        );
     }
 
     #[test]
@@ -121,7 +124,10 @@ mod tests {
         // Address starting with '1' should be rejected (likely Bitcoin P2PKH)
         let input = "1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa";
         let result = detect_solana(input).unwrap();
-        assert!(result.is_none(), "Should reject addresses starting with '1'");
+        assert!(
+            result.is_none(),
+            "Should reject addresses starting with '1'"
+        );
     }
 
     #[test]
@@ -129,7 +135,10 @@ mod tests {
         // Address starting with '3' should be rejected (likely Bitcoin P2SH)
         let input = "3J98t1WpEZ73CNmQviecrnyiWrnqRhWNLy";
         let result = detect_solana(input).unwrap();
-        assert!(result.is_none(), "Should reject addresses starting with '3'");
+        assert!(
+            result.is_none(),
+            "Should reject addresses starting with '3'"
+        );
     }
 
     #[test]
@@ -196,4 +205,3 @@ mod tests {
         assert_eq!(id_result.normalized, input);
     }
 }
-
