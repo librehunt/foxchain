@@ -5,7 +5,7 @@
 
 mod formats;
 
-use formats::{bitcoin, cosmos, evm, solana, tron};
+use formats::{bitcoin, cosmos, evm, solana, substrate, tron};
 
 /// Identify the blockchain(s) for a given input string.
 ///
@@ -49,7 +49,12 @@ pub fn identify(input: &str) -> Result<IdentificationResult, Error> {
         return Ok(result);
     }
 
-    // TODO: Add other format detectors (Substrate, etc.)
+    // Try Substrate addresses
+    if let Some(result) = substrate::detect_substrate(input)? {
+        return Ok(result);
+    }
+
+    // TODO: Add other format detectors
 
     Err(Error::InvalidInput(format!(
         "Unable to identify address format: {}",
@@ -109,7 +114,10 @@ pub enum Chain {
     Kava,
     Regen,
     Sentinel,
+    // Substrate ecosystem
     Polkadot,
+    Kusama,
+    Substrate, // Generic Substrate chain
 }
 
 /// Errors that can occur during identification

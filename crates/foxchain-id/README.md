@@ -70,9 +70,15 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
   - Case-insensitive normalization
   - See [Cosmos Addresses Documentation](docs/cosmos-addresses.md) for details
 
+- **Substrate/Polkadot Ecosystem Addresses** (Polkadot, Kusama, Generic Substrate)
+  - SS58 encoding (Base58 with chain-specific prefixes)
+  - Chain identification from SS58 prefix
+  - SS58 structure validation
+  - Account ID extraction (32 bytes)
+  - See [Substrate Addresses Documentation](docs/substrate-addresses.md) for details
+
 ### Planned
 
-- Substrate/Polkadot addresses (SS58)
 - And more...
 
 See [Format Documentation](docs/) for detailed information about each format.

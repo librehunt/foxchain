@@ -12,3 +12,4 @@ tiny-keccak = { version = "2.0", features = ["keccak"] }
 base58 = "0.2"
 bech32 = "0.9"
 sha2 = "0.10"
+ss58-registry = "1.51"

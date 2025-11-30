@@ -11,10 +11,11 @@ This directory contains detailed documentation about various blockchain address 
 - [Solana Addresses](solana-addresses.md) - Solana public keys (base58)
 - [Tron Addresses](tron-addresses.md) - Tron addresses (base58check)
 - [Cosmos Addresses](cosmos-addresses.md) - Cosmos ecosystem (bech32 with HRP)
+- [Substrate Addresses](substrate-addresses.md) - Polkadot, Kusama, and parachains (SS58)
 
 ### Planned Formats
 
-- [Substrate Addresses](substrate-addresses.md) - Polkadot, Kusama, and parachains (SS58)
+- Additional blockchain formats
 
 ## Format Documentation Structure
 
