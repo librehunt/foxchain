@@ -35,6 +35,12 @@
   - HRP-to-chain mapping for chain identification
   - Bech32 validation and checksum verification
   - Case-insensitive address normalization
+- Substrate/Polkadot ecosystem address detection and normalization in foxchain-id crate
+  - SS58 address detection (Base58 with chain-specific prefixes)
+  - Support for major Substrate chains (Polkadot, Kusama, Generic Substrate)
+  - Prefix-to-chain mapping for chain identification
+  - SS58 structure validation (prefix + 32-byte account ID + 2-byte checksum)
+  - Account ID extraction
 - Automated publishing workflow for all crates to crates.io
   - Supports automatic publishing on release creation
   - Supports manual publishing via workflow_dispatch
