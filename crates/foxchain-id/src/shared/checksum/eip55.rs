@@ -93,7 +93,11 @@ mod tests {
         let lowercase = "0xd8da6bf26964af9d7eed9e03e53415d37aa96045";
         let checksummed = normalize(lowercase).unwrap();
         // The normalized address should have a valid checksum
-        assert!(validate(&checksummed), "Normalized address should have valid checksum: {}", checksummed);
+        assert!(
+            validate(&checksummed),
+            "Normalized address should have valid checksum: {}",
+            checksummed
+        );
     }
 
     #[test]

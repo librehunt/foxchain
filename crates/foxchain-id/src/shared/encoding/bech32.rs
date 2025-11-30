@@ -118,7 +118,12 @@ mod tests {
         // Verify all values are valid u5 (0-31)
         for (i, u5_val) in result.iter().enumerate() {
             let val: u8 = (*u5_val).into();
-            assert!(val <= 31, "Value at index {} should be <= 31, got {}", i, val);
+            assert!(
+                val <= 31,
+                "Value at index {} should be <= 31, got {}",
+                i,
+                val
+            );
             assert_eq!(val, data[i]);
         }
     }
