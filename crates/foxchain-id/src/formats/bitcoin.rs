@@ -249,7 +249,7 @@ mod tests {
     #[test]
     fn test_detect_litecoin_p2pkh() {
         // Litecoin P2PKH address (version byte 0x30)
-        let input = "LTC1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa";
+        let _input = "LTC1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa";
         // Note: This is a placeholder - actual Litecoin addresses would have different format
         // Testing that Litecoin is in the Chain enum
         assert_eq!(Chain::Litecoin, Chain::Litecoin);
