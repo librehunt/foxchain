@@ -58,12 +58,12 @@ An address is valid if:
 `foxchain-id` normalizes Solana addresses:
 
 - **Input**: Any valid Base58 Solana address
-- **Output**: Lowercase Base58 (canonical format)
-- **Process**: Decode, validate length, re-encode
+- **Output**: Preserved as-is (Base58 is case-sensitive, original format is canonical)
+- **Process**: Validate Base58 encoding and length, preserve original case
 
 ### Case Handling
 
-Base58 is case-sensitive, but Solana addresses are typically written in a consistent case. The library normalizes to a standard representation.
+Base58 is case-sensitive, so Solana addresses preserve their original case. The library validates the address but does not change the case, as Base58 encoding is case-sensitive and the original format is considered canonical.
 
 ## Multi-chain Considerations
 

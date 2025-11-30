@@ -19,6 +19,11 @@
   - Bech32 validation for native SegWit addresses
   - Support for Bitcoin, Litecoin, and Dogecoin
   - Chain identification based on version bytes and HRP prefixes
+- Solana address detection and normalization in foxchain-id crate
+  - Base58 address detection (32-44 bytes when decoded)
+  - Length validation (standard 32 bytes, up to 44 bytes)
+  - Prefix filtering to avoid conflicts with Bitcoin and EVM addresses
+  - Confidence scoring based on address length
 - Automated publishing workflow for all crates to crates.io
   - Supports automatic publishing on release creation
   - Supports manual publishing via workflow_dispatch

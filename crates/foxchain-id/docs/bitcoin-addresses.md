@@ -175,11 +175,11 @@ Addresses can be distinguished by:
 6. Validate Bech32 encoding and checksum
 7. Identify chain from HRP
 
-### Planned Support
+### Current Support
 
-- Bitcoin (P2PKH, P2SH, Bech32)
-- Litecoin (P2PKH, P2SH, Bech32)
-- Dogecoin (P2PKH, P2SH)
+- ✅ Bitcoin (P2PKH, P2SH, Bech32) - Implemented
+- ✅ Litecoin (P2PKH, P2SH, Bech32) - Implemented
+- ✅ Dogecoin (P2PKH, P2SH) - Implemented
 
 ## Examples
 

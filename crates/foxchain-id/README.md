@@ -42,13 +42,25 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
   - EIP-55 checksum validation and normalization
   - See [EVM Addresses Documentation](docs/evm-addresses.md) for details
 
+- **Bitcoin Ecosystem** (Bitcoin, Litecoin, Dogecoin)
+  - P2PKH addresses (legacy, starts with `1`)
+  - P2SH addresses (script hash, starts with `3`)
+  - Bech32 addresses (native SegWit, starts with `bc1`/`ltc1`/etc.)
+  - Base58Check validation for P2PKH and P2SH
+  - Bech32 validation for native SegWit
+  - See [Bitcoin Addresses Documentation](docs/bitcoin-addresses.md) for details
+
+- **Solana Addresses**
+  - Base58 encoding (32-44 bytes when decoded)
+  - Length validation (standard 32 bytes, up to 44 bytes)
+  - Prefix filtering to avoid conflicts with other chains
+  - See [Solana Addresses Documentation](docs/solana-addresses.md) for details
+
 ### Planned
 
-- Bitcoin ecosystem (P2PKH, P2SH, Bech32)
-- Solana addresses
-- Cosmos ecosystem addresses
+- Cosmos ecosystem addresses (Bech32 with HRP)
 - Substrate/Polkadot addresses (SS58)
-- Tron addresses
+- Tron addresses (Base58Check)
 - And more...
 
 See [Format Documentation](docs/) for detailed information about each format.
