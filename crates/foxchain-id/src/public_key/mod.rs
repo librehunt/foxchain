@@ -60,7 +60,7 @@ pub fn detect_public_key(input: &str) -> Result<Option<IdentificationResult>, Er
         }
         PublicKeyType::Ed25519 => {
             // Solana address derivation
-            if let Some(_) = derive_solana_address(&key_bytes) {
+            if derive_solana_address(&key_bytes).is_some() {
                 candidates.push(ChainCandidate {
                     chain: Chain::Solana,
                     confidence: 0.85,
