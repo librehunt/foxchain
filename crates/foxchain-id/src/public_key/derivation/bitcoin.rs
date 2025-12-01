@@ -114,4 +114,27 @@ mod tests {
         let result = derive_p2pkh_address(&hash160, 0x00).unwrap();
         assert!(result.is_none());
     }
+
+    #[test]
+    fn test_derive_bitcoin_addresses_invalid_length() {
+        // Test with invalid length (not 33, 64, or 65 bytes)
+        let key_bytes = vec![0u8; 63];
+        let result = derive_bitcoin_addresses(&key_bytes).unwrap();
+        assert!(result.is_empty());
+    }
+
+    #[test]
+    fn test_derive_bitcoin_addresses_compressed_invalid_decompression() {
+        // Test with compressed key that fails decompression validation
+        // This tests the case where decompression succeeds but result doesn't have expected format
+        // We'll use a key that decompresses but doesn't match expected format
+        // Actually, if decompression succeeds, it should always produce 65 bytes with 0x04 prefix
+        // So we test with an invalid compressed key that fails decompression
+        let mut invalid_compressed = vec![0x02];
+        invalid_compressed.extend(vec![0xFFu8; 32]); // Invalid curve point
+
+        let result = derive_bitcoin_addresses(&invalid_compressed);
+        // Should return error from decompression
+        assert!(result.is_err());
+    }
 }

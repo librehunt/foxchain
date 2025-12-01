@@ -143,4 +143,21 @@ mod tests {
             .unwrap();
         assert_eq!(uncompressed, expected);
     }
+
+    #[test]
+    fn test_decompress_public_key_invalid_curve_point() {
+        // Test with a compressed key that has valid format but is not on the curve
+        // This should trigger the error path in PublicKey::from_slice
+        let mut compressed = vec![0x02];
+        // Use a value that's not a valid x-coordinate on secp256k1 curve
+        compressed.extend(vec![0xFFu8; 32]);
+
+        let result = decompress_public_key(&compressed);
+        // This should fail because the point is not on the curve
+        assert!(result.is_err());
+        assert!(result
+            .unwrap_err()
+            .to_string()
+            .contains("Invalid compressed public key"));
+    }
 }

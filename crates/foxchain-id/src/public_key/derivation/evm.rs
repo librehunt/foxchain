@@ -86,4 +86,25 @@ mod tests {
         let result = derive_evm_address(&key_bytes).unwrap();
         assert!(result.is_none());
     }
+
+    #[test]
+    fn test_derive_evm_address_compressed_invalid_decompression() {
+        // Test with compressed key that fails decompression
+        // This tests the error path when decompression fails
+        let mut invalid_compressed = vec![0x02];
+        invalid_compressed.extend(vec![0xFFu8; 32]); // Invalid curve point
+
+        let result = derive_evm_address(&invalid_compressed);
+        // Should return error from decompression
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_derive_evm_address_uncompressed_wrong_prefix() {
+        // Test with 65-byte key that doesn't start with 0x04
+        let mut key_bytes = vec![0x05]; // Wrong prefix
+        key_bytes.extend(vec![0u8; 64]);
+        let result = derive_evm_address(&key_bytes).unwrap();
+        assert!(result.is_none());
+    }
 }
