@@ -1,6 +1,7 @@
 //! Bitcoin address derivation from secp256k1 public keys
 
 use crate::shared::crypto::hash::{double_sha256, hash160};
+use crate::shared::crypto::secp256k1;
 use crate::{Chain, Error};
 use base58::ToBase58;
 
@@ -11,14 +12,25 @@ pub fn derive_bitcoin_addresses(public_key: &[u8]) -> Result<Vec<(Chain, String)
     let mut addresses = Vec::new();
 
     // Get uncompressed public key bytes (skip 0x04 prefix if present)
-    let key_bytes = if public_key.len() == 65 && public_key[0] == 0x04 {
-        &public_key[1..]
+    let key_bytes_64 = if public_key.len() == 33 {
+        // Compressed key - decompress it
+        let uncompressed = secp256k1::decompress_public_key(public_key)?;
+        // Extract the 64-byte key (skip 0x04 prefix)
+        if uncompressed.len() == 65 && uncompressed[0] == 0x04 {
+            uncompressed[1..65].to_vec()
+        } else {
+            return Ok(addresses);
+        }
+    } else if public_key.len() == 65 && public_key[0] == 0x04 {
+        // Uncompressed key - extract the 64-byte key (skip 0x04 prefix)
+        public_key[1..65].to_vec()
     } else if public_key.len() == 64 {
-        public_key
+        public_key.to_vec()
     } else {
-        // Compressed keys need decompression - skip for now
         return Ok(addresses);
     };
+
+    let key_bytes = &key_bytes_64;
 
     // Compute hash160: RIPEMD160(SHA256(public_key))
     let hash160_bytes = hash160(key_bytes);
@@ -84,10 +96,15 @@ mod tests {
 
     #[test]
     fn test_derive_bitcoin_addresses_compressed() {
-        // Test with compressed public key (should return empty)
-        let key_bytes = vec![0x02; 33];
-        let result = derive_bitcoin_addresses(&key_bytes).unwrap();
-        assert!(result.is_empty());
+        // Test with compressed public key (should now work after decompression)
+        // Use a valid compressed key (generator point)
+        use crate::shared::encoding::hex;
+        let compressed =
+            hex::decode("0279be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798")
+                .unwrap();
+        let result = derive_bitcoin_addresses(&compressed).unwrap();
+        assert!(!result.is_empty());
+        assert_eq!(result[0].0, Chain::Bitcoin);
     }
 
     #[test]
@@ -96,5 +113,28 @@ mod tests {
         let hash160 = vec![0u8; 19]; // Wrong length
         let result = derive_p2pkh_address(&hash160, 0x00).unwrap();
         assert!(result.is_none());
+    }
+
+    #[test]
+    fn test_derive_bitcoin_addresses_invalid_length() {
+        // Test with invalid length (not 33, 64, or 65 bytes)
+        let key_bytes = vec![0u8; 63];
+        let result = derive_bitcoin_addresses(&key_bytes).unwrap();
+        assert!(result.is_empty());
+    }
+
+    #[test]
+    fn test_derive_bitcoin_addresses_compressed_invalid_decompression() {
+        // Test with compressed key that fails decompression validation
+        // This tests the case where decompression succeeds but result doesn't have expected format
+        // We'll use a key that decompresses but doesn't match expected format
+        // Actually, if decompression succeeds, it should always produce 65 bytes with 0x04 prefix
+        // So we test with an invalid compressed key that fails decompression
+        let mut invalid_compressed = vec![0x02];
+        invalid_compressed.extend(vec![0xFFu8; 32]); // Invalid curve point
+
+        let result = derive_bitcoin_addresses(&invalid_compressed);
+        // Should return error from decompression
+        assert!(result.is_err());
     }
 }

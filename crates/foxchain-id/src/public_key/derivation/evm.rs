@@ -1,6 +1,7 @@
 //! EVM address derivation from secp256k1 public keys
 
 use crate::shared::crypto::hash::keccak256;
+use crate::shared::crypto::secp256k1;
 use crate::shared::encoding::hex;
 use crate::Error;
 
@@ -8,23 +9,29 @@ use crate::Error;
 ///
 /// Process:
 /// 1. Take public key (compressed or uncompressed)
-/// 2. If compressed, decompress (we'll skip this for now and use uncompressed)
+/// 2. If compressed, decompress to uncompressed format
 /// 3. Compute Keccak-256 hash
 /// 4. Take last 20 bytes
 /// 5. Format as 0x-prefixed hex
 pub fn derive_evm_address(public_key: &[u8]) -> Result<Option<String>, Error> {
-    // For compressed keys, we'd need to decompress, but for simplicity
-    // we'll only handle uncompressed keys (65 bytes)
-    let key_bytes = if public_key.len() == 33 {
-        // Compressed key - we'd need to decompress, but that's complex
-        // For now, return None for compressed keys
-        return Ok(None);
+    // Handle compressed and uncompressed keys
+    let key_bytes_64 = if public_key.len() == 33 {
+        // Compressed key - decompress it
+        let uncompressed = secp256k1::decompress_public_key(public_key)?;
+        // Extract the 64-byte key (skip 0x04 prefix)
+        if uncompressed.len() == 65 && uncompressed[0] == 0x04 {
+            uncompressed[1..65].to_vec()
+        } else {
+            return Ok(None);
+        }
     } else if public_key.len() == 65 && public_key[0] == 0x04 {
-        // Uncompressed key - skip the 0x04 prefix
-        &public_key[1..]
+        // Uncompressed key - extract the 64-byte key (skip 0x04 prefix)
+        public_key[1..65].to_vec()
     } else {
         return Ok(None);
     };
+
+    let key_bytes = &key_bytes_64;
 
     // Compute Keccak-256 hash
     let hash = keccak256(key_bytes);
@@ -59,16 +66,44 @@ mod tests {
 
     #[test]
     fn test_derive_evm_address_compressed() {
-        // Test with compressed public key (should return None)
-        let key_bytes = vec![0x02; 33];
-        let result = derive_evm_address(&key_bytes).unwrap();
-        assert!(result.is_none());
+        // Test with compressed public key (should now work after decompression)
+        // Use a valid compressed key (generator point)
+        use crate::shared::encoding::hex;
+        let compressed =
+            hex::decode("0279be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798")
+                .unwrap();
+        let result = derive_evm_address(&compressed).unwrap();
+        assert!(result.is_some());
+        let address = result.unwrap();
+        assert!(address.starts_with("0x"));
+        assert_eq!(address.len(), 42);
     }
 
     #[test]
     fn test_derive_evm_address_invalid_length() {
         // Test with invalid length (not 33 or 65 bytes)
         let key_bytes = vec![0u8; 32];
+        let result = derive_evm_address(&key_bytes).unwrap();
+        assert!(result.is_none());
+    }
+
+    #[test]
+    fn test_derive_evm_address_compressed_invalid_decompression() {
+        // Test with compressed key that fails decompression
+        // This tests the error path when decompression fails
+        let mut invalid_compressed = vec![0x02];
+        invalid_compressed.extend(vec![0xFFu8; 32]); // Invalid curve point
+
+        let result = derive_evm_address(&invalid_compressed);
+        // Should return error from decompression
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_derive_evm_address_uncompressed_wrong_prefix() {
+        // Test with 65-byte key that doesn't start with 0x04
+        let mut key_bytes = vec![0x05]; // Wrong prefix
+        key_bytes.extend(vec![0u8; 64]);
         let result = derive_evm_address(&key_bytes).unwrap();
         assert!(result.is_none());
     }
