@@ -56,4 +56,20 @@ mod tests {
         assert!(address.starts_with("0x"));
         assert_eq!(address.len(), 42);
     }
+
+    #[test]
+    fn test_derive_evm_address_compressed() {
+        // Test with compressed public key (should return None)
+        let key_bytes = vec![0x02; 33];
+        let result = derive_evm_address(&key_bytes).unwrap();
+        assert!(result.is_none());
+    }
+
+    #[test]
+    fn test_derive_evm_address_invalid_length() {
+        // Test with invalid length (not 33 or 65 bytes)
+        let key_bytes = vec![0u8; 32];
+        let result = derive_evm_address(&key_bytes).unwrap();
+        assert!(result.is_none());
+    }
 }

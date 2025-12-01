@@ -49,4 +49,12 @@ mod tests {
         let address = result.unwrap();
         assert!(address.starts_with("cosmos1"));
     }
+
+    #[test]
+    fn test_derive_cosmos_address_invalid_length() {
+        // Test with invalid length (not 32 bytes)
+        let key_bytes = vec![0u8; 33];
+        let result = derive_cosmos_address(&key_bytes).unwrap();
+        assert!(result.is_none());
+    }
 }

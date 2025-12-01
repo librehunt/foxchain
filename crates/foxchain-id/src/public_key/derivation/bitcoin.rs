@@ -72,4 +72,29 @@ mod tests {
         assert!(!result.is_empty());
         assert_eq!(result[0].0, Chain::Bitcoin);
     }
+
+    #[test]
+    fn test_derive_bitcoin_addresses_64_bytes() {
+        // Test with 64-byte public key (without 0x04 prefix)
+        let key_bytes = vec![0u8; 64];
+        let result = derive_bitcoin_addresses(&key_bytes).unwrap();
+        assert!(!result.is_empty());
+        assert_eq!(result[0].0, Chain::Bitcoin);
+    }
+
+    #[test]
+    fn test_derive_bitcoin_addresses_compressed() {
+        // Test with compressed public key (should return empty)
+        let key_bytes = vec![0x02; 33];
+        let result = derive_bitcoin_addresses(&key_bytes).unwrap();
+        assert!(result.is_empty());
+    }
+
+    #[test]
+    fn test_derive_p2pkh_address_invalid_length() {
+        // Test with invalid hash160 length
+        let hash160 = vec![0u8; 19]; // Wrong length
+        let result = derive_p2pkh_address(&hash160, 0x00).unwrap();
+        assert!(result.is_none());
+    }
 }
