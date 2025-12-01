@@ -5,6 +5,9 @@
 [Full Changelog](https://github.com/librehunt/foxchain/compare/f9d6d027ed2e0164435e56e6c12f0184422a79c8...HEAD)
 
 ### Added
+- **Compressed public key decompression support**: Added `decompress_public_key` function in `shared/crypto/secp256k1.rs` to support decompressing 33-byte compressed secp256k1 public keys to 65-byte uncompressed format
+- **EVM address derivation from compressed keys**: `derive_evm_address` now supports compressed public keys (33 bytes with 0x02/0x03 prefix)
+- **Bitcoin address derivation from compressed keys**: `derive_bitcoin_addresses` now supports compressed public keys (33 bytes with 0x02/0x03 prefix)
 - Workspace structure with foxchain-id and foxchain-analysis crates
 - Root library that re-exports both crates for unified access
 - EVM address detection and normalization in foxchain-id crate
