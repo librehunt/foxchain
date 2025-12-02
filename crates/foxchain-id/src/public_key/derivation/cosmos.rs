@@ -110,4 +110,26 @@ mod tests {
             "Should return empty vector for invalid length"
         );
     }
+
+    #[test]
+    fn test_derive_cosmos_address_empty_key() {
+        // Test with empty key (0 bytes)
+        let key_bytes = vec![];
+        let result = derive_cosmos_address(&key_bytes).unwrap();
+        assert!(
+            result.is_empty(),
+            "Should return empty vector for empty key"
+        );
+    }
+
+    #[test]
+    fn test_derive_cosmos_address_short_key() {
+        // Test with key that's too short (31 bytes)
+        let key_bytes = vec![0u8; 31];
+        let result = derive_cosmos_address(&key_bytes).unwrap();
+        assert!(
+            result.is_empty(),
+            "Should return empty vector for key that's too short"
+        );
+    }
 }
