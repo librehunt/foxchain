@@ -54,43 +54,47 @@ pub fn identify(input: &str) -> Result<Vec<IdentificationCandidate>, Error> {
     let candidate_chains = registry.get_candidates(&signature);
     
     // Step 4: Filter by metadata + run detectors
-    let mut results = Vec::new();
-    
-    // Try address detection
-    for chain_metadata in &candidate_chains {
-        for addr_format in &chain_metadata.address_formats {
-            if matches_metadata(&chars, addr_format) {
-                if let Some(result) = detect_address(input, &chars, addr_format, chain_metadata.id.clone())? {
-                    results.push(IdentificationCandidate {
-                        input_type: InputType::Address,
-                        chain: result.chain,
-                        encoding: result.encoding,
-                        normalized: result.normalized,
-                        confidence: result.confidence,
-                        reasoning: result.reasoning,
-                    });
-                }
-            }
-        }
-    }
-    
-    // Try public key detection
-    for chain_metadata in &candidate_chains {
-        for pk_format in &chain_metadata.public_key_formats {
-            if matches_metadata_pk(&chars, pk_format) {
-                if let Some(result) = detect_public_key(input, &chars, pk_format, chain_metadata.id.clone())? {
-                    results.push(IdentificationCandidate {
-                        input_type: InputType::PublicKey,
-                        chain: result.chain,
-                        encoding: result.encoding,
-                        normalized: result.normalized,
-                        confidence: result.confidence,
-                        reasoning: result.reasoning,
-                    });
-                }
-            }
-        }
-    }
+    let mut results: Vec<IdentificationCandidate> = candidate_chains
+        .iter()
+        .flat_map(|chain_metadata| {
+            // Try address detection
+            chain_metadata.address_formats
+                .iter()
+                .filter(|addr_format| matches_metadata(&chars, addr_format))
+                .filter_map(|addr_format| {
+                    detect_address(input, &chars, addr_format, chain_metadata.id.clone())
+                        .ok()
+                        .flatten()
+                })
+                .map(|result| IdentificationCandidate {
+                    input_type: InputType::Address,
+                    chain: result.chain,
+                    encoding: result.encoding,
+                    normalized: result.normalized,
+                    confidence: result.confidence,
+                    reasoning: result.reasoning,
+                })
+                .chain(
+                    // Try public key detection
+                    chain_metadata.public_key_formats
+                        .iter()
+                        .filter(|pk_format| matches_metadata_pk(&chars, pk_format))
+                        .filter_map(|pk_format| {
+                            detect_public_key(input, &chars, pk_format, chain_metadata.id.clone())
+                                .ok()
+                                .flatten()
+                        })
+                        .map(|result| IdentificationCandidate {
+                            input_type: InputType::PublicKey,
+                            chain: result.chain,
+                            encoding: result.encoding,
+                            normalized: result.normalized,
+                            confidence: result.confidence,
+                            reasoning: result.reasoning,
+                        })
+                )
+        })
+        .collect();
     
     // Sort by confidence (highest first)
     results.sort_by(|a, b| b.confidence.partial_cmp(&a.confidence).unwrap_or(std::cmp::Ordering::Equal));
