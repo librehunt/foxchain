@@ -3,12 +3,10 @@
 //! This crate provides functionality to retrieve on-chain data for identified wallets,
 //! including balances, transaction history, token transfers, and chain-specific artifacts.
 
-use foxchain_id::Chain;
-
 /// Client for interacting with blockchain analysis services
 pub struct Client {
     #[allow(dead_code)]
-    chain: Chain,
+    chain: String,
     // TODO: Add provider configuration
 }
 
@@ -16,9 +14,13 @@ impl Client {
     /// Create a client for a specific chain
     ///
     /// Uses environment variables for provider configuration (e.g., ETHERSCAN_API_KEY, ALCHEMY_API_KEY)
-    pub fn for_chain(chain: Chain) -> Result<Self, Error> {
+    /// 
+    /// # Arguments
+    /// 
+    /// * `chain` - Chain ID as a string (e.g., "ethereum", "bitcoin", "polygon")
+    pub fn for_chain(chain: &str) -> Result<Self, Error> {
         // TODO: Initialize client with provider configuration from environment
-        Ok(Client { chain })
+        Ok(Client { chain: chain.to_string() })
     }
 
     /// Get account summary for an address
@@ -82,13 +84,13 @@ mod tests {
 
     #[test]
     fn test_client_creation() {
-        let client = Client::for_chain(Chain::Ethereum);
+        let client = Client::for_chain("ethereum");
         assert!(client.is_ok());
     }
 
     #[test]
     fn test_account_summary_not_implemented() {
-        let client = Client::for_chain(Chain::Ethereum).unwrap();
+        let client = Client::for_chain("ethereum").unwrap();
         let result = client.account_summary("0x742d35Cc6634C0532925a3b844Bc454e4438f44e");
         assert!(result.is_err());
     }

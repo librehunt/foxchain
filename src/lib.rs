@@ -9,16 +9,15 @@
 //! ```no_run
 //! use foxchain::foxchain_id::identify;
 //! use foxchain::foxchain_analysis::Client;
-//! use foxchain::Chain;
 //!
 //! fn main() -> Result<(), Box<dyn std::error::Error>> {
 //!     let input = "0x742d35Cc6634C0532925a3b844Bc454e4438f44e";
-//!     let id = identify(input)?; // returns candidates + normalized form
+//!     let candidates = identify(input)?; // returns Vec<IdentificationCandidate>
 //!
 //!     // Pick Ethereum if present
-//!     if let Some(_candidate) = id.candidates.iter().find(|c| c.chain == Chain::Ethereum) {
-//!         let addr = &id.normalized;
-//!         let client = Client::for_chain(Chain::Ethereum)?; // uses env-configured providers
+//!     if let Some(candidate) = candidates.iter().find(|c| c.chain == "ethereum") {
+//!         let addr = &candidate.normalized;
+//!         let client = Client::for_chain("ethereum")?; // uses env-configured providers
 //!         let summary = client.account_summary(addr)?; // balances, tx count, tokens, etc.
 //!         println!("{:?}", summary);
 //!     }
@@ -34,4 +33,4 @@ pub use foxchain_analysis;
 
 // Re-export commonly used types for convenience
 pub use foxchain_analysis::{AccountSummary, Client, TokenBalance};
-pub use foxchain_id::{identify, Chain, ChainCandidate, IdentificationResult};
+pub use foxchain_id::{identify, IdentificationCandidate, InputType};
