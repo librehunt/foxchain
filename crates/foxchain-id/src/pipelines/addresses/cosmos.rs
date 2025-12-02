@@ -35,3 +35,53 @@ pub fn execute_cosmos_pipeline(pk_bytes: &[u8], params: &Value) -> Result<String
         .map_err(|e| Error::InvalidInput(format!("Bech32 encoding error: {}", e)))
 }
 
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+
+    #[test]
+    fn test_cosmos_pipeline_valid_key() {
+        let key = vec![0u8; 32];
+        let params = json!({"hrp": "cosmos"});
+        
+        let result = execute_cosmos_pipeline(&key, &params);
+        assert!(result.is_ok());
+        let address = result.unwrap();
+        assert!(address.starts_with("cosmos1"));
+    }
+
+    #[test]
+    fn test_cosmos_pipeline_invalid_length() {
+        let invalid_key = vec![0u8; 33];
+        let params = json!({"hrp": "cosmos"});
+        
+        let result = execute_cosmos_pipeline(&invalid_key, &params);
+        assert!(result.is_err());
+        let error_msg = result.unwrap_err().to_string();
+        assert!(error_msg.contains("32") || error_msg.contains("Invalid"));
+    }
+
+    #[test]
+    fn test_cosmos_pipeline_default_hrp() {
+        let key = vec![0u8; 32];
+        let params = json!({}); // No HRP, should default to "cosmos"
+        
+        let result = execute_cosmos_pipeline(&key, &params);
+        assert!(result.is_ok());
+        let address = result.unwrap();
+        assert!(address.starts_with("cosmos1"));
+    }
+
+    #[test]
+    fn test_cosmos_pipeline_custom_hrp() {
+        let key = vec![0u8; 32];
+        let params = json!({"hrp": "osmo"});
+        
+        let result = execute_cosmos_pipeline(&key, &params);
+        assert!(result.is_ok());
+        let address = result.unwrap();
+        assert!(address.starts_with("osmo1"));
+    }
+}
+

@@ -93,5 +93,29 @@ mod tests {
         let client = Client::for_chain("ethereum").unwrap();
         let result = client.account_summary("0x742d35Cc6634C0532925a3b844Bc454e4438f44e");
         assert!(result.is_err());
+        assert!(matches!(result.unwrap_err(), Error::NotImplemented));
+    }
+
+    #[test]
+    fn test_error_display_not_implemented() {
+        let error = Error::NotImplemented;
+        let msg = format!("{}", error);
+        assert_eq!(msg, "Feature not yet implemented");
+    }
+
+    #[test]
+    fn test_error_display_configuration_error() {
+        let error = Error::ConfigurationError("Missing API key".to_string());
+        let msg = format!("{}", error);
+        assert!(msg.contains("Configuration error"));
+        assert!(msg.contains("Missing API key"));
+    }
+
+    #[test]
+    fn test_error_display_network_error() {
+        let error = Error::NetworkError("Connection timeout".to_string());
+        let msg = format!("{}", error);
+        assert!(msg.contains("Network error"));
+        assert!(msg.contains("Connection timeout"));
     }
 }

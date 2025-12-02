@@ -47,3 +47,63 @@ fn extract_64_bytes(public_key: &[u8]) -> Result<Vec<u8>, Error> {
     }
 }
 
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+
+    #[test]
+    fn test_tron_pipeline_compressed_key() {
+        let compressed_key = hex::decode("0279be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798").unwrap();
+        let params = json!({});
+        
+        let result = execute_tron_pipeline(&compressed_key, &params);
+        assert!(result.is_ok());
+        let address = result.unwrap();
+        assert!(!address.is_empty());
+    }
+
+    #[test]
+    fn test_tron_pipeline_uncompressed_key() {
+        let uncompressed_key = hex::decode("0479be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798483ada7726a3c4655da4fbfc0e1108a8fd17b448a68554199c47d08ffb10d4b8").unwrap();
+        let params = json!({});
+        
+        let result = execute_tron_pipeline(&uncompressed_key, &params);
+        assert!(result.is_ok());
+        let address = result.unwrap();
+        assert!(!address.is_empty());
+    }
+
+    #[test]
+    fn test_tron_pipeline_64_byte_key() {
+        let key_64 = hex::decode("79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798483ada7726a3c4655da4fbfc0e1108a8fd17b448a68554199c47d08ffb10d4b8").unwrap();
+        let params = json!({});
+        
+        let result = execute_tron_pipeline(&key_64, &params);
+        assert!(result.is_ok());
+        let address = result.unwrap();
+        assert!(!address.is_empty());
+    }
+
+    #[test]
+    fn test_tron_pipeline_invalid_length() {
+        let invalid_key = vec![0u8; 32];
+        let params = json!({});
+        
+        let result = execute_tron_pipeline(&invalid_key, &params);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_tron_pipeline_invalid_decompressed_format() {
+        // Test with a key that has invalid format (wrong prefix for compressed)
+        // Use 0x04 prefix which is for uncompressed, but length is 33
+        let mut invalid_key = vec![0x04u8; 33];
+        let params = json!({});
+        
+        let result = execute_tron_pipeline(&invalid_key, &params);
+        // Should fail - either at length check or decompression
+        assert!(result.is_err());
+    }
+}
+
