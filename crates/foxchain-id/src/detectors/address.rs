@@ -6,10 +6,11 @@
 
 use crate::input::InputCharacteristics;
 use crate::registry::{
-    AddressMetadata, Chain, CharSet, ChecksumType, EncodingType,
+    AddressMetadata, CharSet, ChecksumType, EncodingType,
 };
-use crate::shared::checksum::{base58check, bech32 as bech32_checksum, eip55};
-use crate::Error;
+use crate::shared::checksum::{base58check, eip55};
+use crate::shared::encoding::bech32 as bech32_encoding;
+use crate::{Chain, Error};
 use bech32;
 
 /// Result of address detection
@@ -95,13 +96,13 @@ fn validate_checksum(
             }
         }
         ChecksumType::Bech32 => {
-            match bech32_checksum::decode(input) {
+            match bech32_encoding::decode(input) {
                 Ok((_, _, variant)) => Ok(variant == bech32::Variant::Bech32),
                 Err(_) => Ok(false),
             }
         }
         ChecksumType::Bech32m => {
-            match bech32_checksum::decode(input) {
+            match bech32_encoding::decode(input) {
                 Ok((_, _, variant)) => Ok(variant == bech32::Variant::Bech32m),
                 Err(_) => Ok(false),
             }
@@ -152,7 +153,7 @@ fn calculate_confidence(
     version_valid: bool,
     metadata: &AddressMetadata,
 ) -> f64 {
-    let mut confidence = 0.5; // Base confidence
+    let mut confidence: f64 = 0.5; // Base confidence
     
     // Boost for valid checksum
     if checksum_valid {
@@ -182,7 +183,7 @@ fn generate_reasoning(
 ) -> String {
     let mut parts = Vec::new();
     
-    parts.push(format!("{} address", metadata.encoding));
+    parts.push(format!("{:?} address", metadata.encoding));
     
     if checksum_valid {
         parts.push("valid checksum".to_string());

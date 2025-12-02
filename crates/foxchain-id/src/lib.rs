@@ -4,78 +4,80 @@
 //! string (address, public key, or private key) belongs to.
 
 mod address;
+mod detectors;
 mod formats;
+mod identify;
 mod input;
 mod public_key;
 mod registry;
 mod shared;
 
-use address::detection::{bitcoin, cardano, cosmos, evm, solana, substrate, tron};
-use public_key::detect_public_key;
+pub use identify::{identify as identify_all, IdentificationCandidate, InputType};
 
 /// Identify the blockchain(s) for a given input string.
 ///
-/// Returns normalized representation, candidate chains, confidence scores, and reasoning.
+/// Returns all valid candidates sorted by confidence (highest first).
+/// This function supports ambiguous inputs that may match multiple chains.
 ///
 /// # Example
 ///
 /// ```rust
 /// use foxchain_id::identify;
 ///
-/// let result = identify("0x742d35Cc6634C0532925a3b844Bc454e4438f44e")?;
+/// let candidates = identify("0x742d35Cc6634C0532925a3b844Bc454e4438f44e")?;
+/// for candidate in candidates {
+///     println!("Chain: {:?}, Confidence: {}, Normalized: {}", 
+///              candidate.chain, candidate.confidence, candidate.normalized);
+/// }
+/// # Ok::<(), foxchain_id::Error>(())
+/// ```
+///
+/// For backward compatibility, use `identify_first()` to get a single result.
+pub fn identify(input: &str) -> Result<Vec<IdentificationCandidate>, Error> {
+    identify_all(input)
+}
+
+/// Identify the blockchain(s) for a given input string (backward compatibility).
+///
+/// Returns the first result in the old format for backward compatibility.
+/// New code should use `identify()` which returns all candidates.
+///
+/// # Example
+///
+/// ```rust
+/// use foxchain_id::identify_first;
+///
+/// let result = identify_first("0x742d35Cc6634C0532925a3b844Bc454e4438f44e")?;
 /// println!("Normalized: {}", result.normalized);
 /// for candidate in result.candidates {
 ///     println!("Chain: {:?}, Confidence: {}", candidate.chain, candidate.confidence);
 /// }
 /// # Ok::<(), foxchain_id::Error>(())
 /// ```
-pub fn identify(input: &str) -> Result<IdentificationResult, Error> {
-    // Try EVM address detection first (most common)
-    if let Some(result) = evm::detect_evm(input)? {
-        return Ok(result);
+pub fn identify_first(input: &str) -> Result<IdentificationResult, Error> {
+    let candidates = identify(input)?;
+    
+    if candidates.is_empty() {
+        return Err(Error::InvalidInput(format!(
+            "Unable to identify address format: {}",
+            input
+        )));
     }
-
-    // Try Bitcoin ecosystem addresses
-    if let Some(result) = bitcoin::detect_bitcoin(input)? {
-        return Ok(result);
-    }
-
-    // Try Solana addresses
-    if let Some(result) = solana::detect_solana(input)? {
-        return Ok(result);
-    }
-
-    // Try Tron addresses
-    if let Some(result) = tron::detect_tron(input)? {
-        return Ok(result);
-    }
-
-    // Try Cosmos addresses
-    if let Some(result) = cosmos::detect_cosmos(input)? {
-        return Ok(result);
-    }
-
-    // Try Substrate addresses
-    if let Some(result) = substrate::detect_substrate(input)? {
-        return Ok(result);
-    }
-
-    // Try Cardano addresses
-    if let Some(result) = cardano::detect_cardano(input)? {
-        return Ok(result);
-    }
-
-    // Try public key detection (after address detection, as addresses are more specific)
-    if let Some(result) = detect_public_key(input)? {
-        return Ok(result);
-    }
-
-    // TODO: Add other format detectors (TON, Algorand, Near, etc.)
-
-    Err(Error::InvalidInput(format!(
-        "Unable to identify address format: {}",
-        input
-    )))
+    
+    // Use the first (highest confidence) candidate for normalized address
+    let first = &candidates[0];
+    
+    Ok(IdentificationResult {
+        normalized: first.normalized.clone(),
+        candidates: candidates
+            .into_iter()
+            .map(|c| ChainCandidate {
+                chain: c.chain,
+                confidence: c.confidence,
+                reasoning: c.reasoning,
+            })
+            .collect(),
+    })
 }
 
 /// Result of identification process

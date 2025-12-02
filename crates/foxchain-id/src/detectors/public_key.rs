@@ -4,9 +4,9 @@
 //! of hardcoded format checks.
 
 use crate::input::InputCharacteristics;
-use crate::registry::{Chain, EncodingType, PublicKeyMetadata, PublicKeyType};
-use crate::Error;
+use crate::registry::{EncodingType, PublicKeyMetadata, PublicKeyType};
 use crate::shared::encoding::{base58, bech32 as bech32_encoding, hex};
+use crate::{Chain, Error};
 
 /// Detect public key using metadata
 pub fn detect_public_key(
@@ -18,27 +18,29 @@ pub fn detect_public_key(
     // Decode based on encoding type
     let key_bytes = match metadata.encoding {
         EncodingType::Hex => {
-            hex::decode(input)?
+            hex::decode(input).map_err(|e| Error::InvalidInput(format!("Hex decode error: {}", e)))?
         }
         EncodingType::Base58 => {
-            base58::decode(input)?
+            base58::decode(input).map_err(|e| Error::InvalidInput(format!("Base58 decode error: {}", e)))?
         }
         EncodingType::Bech32 | EncodingType::Bech32m => {
-            let (_, data, _) = bech32_encoding::decode(input)?;
+            let (_, data, _) = bech32_encoding::decode(input)
+                .map_err(|e| Error::InvalidInput(format!("Bech32 decode error: {}", e)))?;
             // Convert u5 vector to bytes
             // u5 values are 0-31, we need to convert 5-bit groups to 8-bit bytes
             let u5_bytes: Vec<u8> = data.iter().map(|u5| u8::from(*u5)).collect();
-            bech32_encoding::convert_bits(&u5_bytes, 5, 8, false)?
+            bech32_encoding::convert_bits(&u5_bytes, 5, 8, false)
+                .map_err(|e| Error::InvalidInput(format!("Bit conversion error: {}", e)))?
         }
         EncodingType::Base58Check => {
             // For Base58Check, we need to validate and extract payload
             // For now, just decode as Base58
-            base58::decode(input)?
+            base58::decode(input).map_err(|e| Error::InvalidInput(format!("Base58 decode error: {}", e)))?
         }
         EncodingType::SS58 => {
             // SS58 decoding is complex, delegate to shared module
             // For now, just decode as Base58
-            base58::decode(input)?
+            base58::decode(input).map_err(|e| Error::InvalidInput(format!("Base58 decode error: {}", e)))?
         }
     };
     
@@ -130,7 +132,7 @@ fn normalize_public_key(input: &str, metadata: &PublicKeyMetadata) -> Result<Str
 
 /// Calculate confidence score
 fn calculate_confidence(metadata: &PublicKeyMetadata) -> f64 {
-    let mut confidence = 0.7; // Base confidence for public keys (lower than addresses)
+    let mut confidence: f64 = 0.7; // Base confidence for public keys (lower than addresses)
     
     // Boost for exact length match
     if metadata.exact_length.is_some() {
@@ -149,7 +151,7 @@ fn calculate_confidence(metadata: &PublicKeyMetadata) -> f64 {
 /// Generate reasoning string
 fn generate_reasoning(metadata: &PublicKeyMetadata) -> String {
     format!(
-        "{} {} public key",
+        "{:?} {} public key",
         metadata.encoding,
         match metadata.key_type {
             PublicKeyType::Secp256k1 => "secp256k1",

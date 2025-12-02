@@ -4,8 +4,12 @@
 //! Each chain defines its supported address and public key formats.
 
 pub mod bitcoin;
+pub mod cardano;
+pub mod cosmos;
 pub mod evm;
 pub mod solana;
+pub mod substrate;
+pub mod tron;
 
 use crate::registry::ChainMetadata;
 
@@ -15,6 +19,9 @@ pub fn all_metadata() -> Vec<ChainMetadata> {
     all.extend(evm::evm_metadata());
     all.extend(bitcoin::bitcoin_metadata());
     all.extend(solana::solana_metadata());
-    // TODO: Add other chains (Cosmos, Substrate, Tron, Cardano)
+    all.extend(cosmos::cosmos_metadata());
+    all.extend(substrate::substrate_metadata());
+    all.extend(tron::tron_metadata());
+    all.extend(cardano::cardano_metadata());
     all
 }
