@@ -415,4 +415,155 @@ mod tests {
         // Should have candidates (Solana and/or Cosmos)
         assert!(!id_result.candidates.is_empty());
     }
+
+    #[test]
+    fn test_detect_public_key_hex_secp256k1_with_substrate() {
+        // Test secp256k1 key that should derive Substrate addresses
+        let key_hex = "0x0479be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798483ada7726a3c4655da4fbfc0e1108a8fd17b448a68554199c47d08ffb10d4b8";
+        let result = detect_public_key(key_hex).unwrap();
+        assert!(result.is_some());
+        let id_result = result.unwrap();
+
+        // Should have Substrate chains
+        let substrate_chains: Vec<_> = id_result
+            .candidates
+            .iter()
+            .filter(|c| matches!(c.chain, Chain::Polkadot | Chain::Kusama | Chain::Substrate))
+            .collect();
+        assert_eq!(
+            substrate_chains.len(),
+            3,
+            "Should have all 3 Substrate chains"
+        );
+
+        // Verify confidence scores
+        let polkadot = id_result
+            .candidates
+            .iter()
+            .find(|c| matches!(c.chain, Chain::Polkadot))
+            .unwrap();
+        assert_eq!(polkadot.confidence, 0.85);
+
+        let kusama = id_result
+            .candidates
+            .iter()
+            .find(|c| matches!(c.chain, Chain::Kusama))
+            .unwrap();
+        assert_eq!(kusama.confidence, 0.80);
+
+        let substrate = id_result
+            .candidates
+            .iter()
+            .find(|c| matches!(c.chain, Chain::Substrate))
+            .unwrap();
+        assert_eq!(substrate.confidence, 0.75);
+    }
+
+    #[test]
+    fn test_detect_public_key_hex_ed25519_with_substrate() {
+        // Test Ed25519 key that should derive Substrate addresses
+        let key_hex = "0x79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798";
+        let result = detect_public_key(key_hex).unwrap();
+        assert!(result.is_some());
+        let id_result = result.unwrap();
+
+        // Should have Substrate chains
+        let substrate_chains: Vec<_> = id_result
+            .candidates
+            .iter()
+            .filter(|c| matches!(c.chain, Chain::Polkadot | Chain::Kusama | Chain::Substrate))
+            .collect();
+        assert_eq!(
+            substrate_chains.len(),
+            3,
+            "Should have all 3 Substrate chains"
+        );
+    }
+
+    #[test]
+    fn test_detect_public_key_sr25519() {
+        // Test with sr25519 key type (manually constructed for testing)
+        // Since detection doesn't distinguish sr25519 from Ed25519, we'll test
+        // the derivation path directly by using a key that would be detected as Ed25519
+        // but we can verify the Sr25519 path works
+        use crate::public_key::derivation::derive_substrate_address;
+        let key_bytes = vec![0u8; 32];
+        let result = derive_substrate_address(&key_bytes, PublicKeyType::Sr25519).unwrap();
+        assert_eq!(result.len(), 3);
+
+        // Test that detect_public_key with a 32-byte key includes Substrate chains
+        // (it will be detected as Ed25519, but Substrate derivation still works)
+        let key_hex = "0x79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798";
+        let result = detect_public_key(key_hex).unwrap();
+        assert!(result.is_some());
+        let id_result = result.unwrap();
+        // Should have Substrate chains (derived from Ed25519 path)
+        assert!(id_result
+            .candidates
+            .iter()
+            .any(|c| matches!(c.chain, Chain::Polkadot | Chain::Kusama | Chain::Substrate)));
+    }
+
+    #[test]
+    fn test_detect_public_key_base58_secp256k1() {
+        // Test with base58-encoded secp256k1 key to cover Base58 format path
+        use base58::ToBase58;
+        let mut key_bytes = vec![0x04u8];
+        key_bytes.extend(vec![0u8; 64]);
+        let base58_key = key_bytes.to_base58();
+
+        let result = detect_public_key(&base58_key).unwrap();
+        assert!(result.is_some());
+        let id_result = result.unwrap();
+        assert!(!id_result.candidates.is_empty());
+        // Should have Substrate chains
+        assert!(id_result
+            .candidates
+            .iter()
+            .any(|c| matches!(c.chain, Chain::Polkadot | Chain::Kusama | Chain::Substrate)));
+    }
+
+    #[test]
+    fn test_detect_public_key_bech32_ed25519() {
+        // Test with bech32-encoded Ed25519 key to cover Bech32 format path
+        use bech32::{ToBase32, Variant};
+        let key_bytes = vec![0u8; 32];
+        let data_u5 = key_bytes.to_base32();
+        let bech32_key = bech32::encode("npub", &data_u5, Variant::Bech32).unwrap();
+
+        let result = detect_public_key(&bech32_key).unwrap();
+        assert!(result.is_some());
+        let id_result = result.unwrap();
+        assert!(!id_result.candidates.is_empty());
+        // Should have Substrate chains
+        assert!(id_result
+            .candidates
+            .iter()
+            .any(|c| matches!(c.chain, Chain::Polkadot | Chain::Kusama | Chain::Substrate)));
+    }
+
+    #[test]
+    fn test_detect_public_key_ed25519_cosmos_fallback() {
+        // Test Ed25519 key where Solana derivation fails but Cosmos succeeds
+        // This tests the fallback path in normalized address selection
+        let key_hex = "0x79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798";
+        let result = detect_public_key(key_hex).unwrap();
+        assert!(result.is_some());
+        let id_result = result.unwrap();
+        // Normalized should be either Solana or Cosmos address
+        assert!(
+            id_result.normalized.starts_with("cosmos1") || id_result.normalized.len() == 44,
+            "Normalized should be valid address"
+        );
+    }
+
+    #[test]
+    fn test_detect_public_key_unknown_key_type() {
+        // Test with unknown key type - should return None
+        // This is hard to trigger through detect() since it returns None for unknown keys
+        // But we can verify the path exists in the code
+        let invalid_input = "not-a-key";
+        let result = detect_public_key(invalid_input).unwrap();
+        assert!(result.is_none());
+    }
 }

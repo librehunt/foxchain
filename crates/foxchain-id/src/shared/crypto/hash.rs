@@ -2,7 +2,7 @@
 
 use blake2::{Blake2b512, Digest as Blake2Digest};
 use ripemd::Ripemd160;
-use sha2::{Digest, Sha256};
+use sha2::Sha256;
 use tiny_keccak::{Hasher, Keccak};
 
 /// Compute SHA256 hash
@@ -135,5 +135,31 @@ mod tests {
         let data = b"";
         let hash = keccak256(data);
         assert_eq!(hash.len(), 32);
+    }
+
+    #[test]
+    fn test_blake2b_256() {
+        let data = b"hello world";
+        let hash = blake2b_256(data);
+        assert_eq!(hash.len(), 32);
+        // Verify it's deterministic
+        let hash2 = blake2b_256(data);
+        assert_eq!(hash, hash2);
+    }
+
+    #[test]
+    fn test_blake2b_256_empty() {
+        let data = b"";
+        let hash = blake2b_256(data);
+        assert_eq!(hash.len(), 32);
+    }
+
+    #[test]
+    fn test_blake2b_256_different_from_sha256() {
+        let data = b"test";
+        let blake2b_hash = blake2b_256(data);
+        let sha256_hash = sha256(data);
+        // Blake2b and SHA256 should produce different hashes
+        assert_ne!(blake2b_hash, sha256_hash);
     }
 }

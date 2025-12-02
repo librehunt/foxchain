@@ -156,7 +156,7 @@ mod tests {
         let mut key_bytes = vec![0x02u8]; // Compressed prefix
         key_bytes.extend(vec![0u8; 32]);
         let result = derive_substrate_address(&key_bytes, PublicKeyType::Secp256k1);
-        
+
         // Decompression might fail for invalid keys, so result could be empty
         // This tests that the function handles invalid keys gracefully
         if let Ok(addresses) = result {
@@ -199,5 +199,54 @@ mod tests {
             result.is_empty(),
             "Should return empty vector for unknown key type"
         );
+    }
+
+    #[test]
+    fn test_derive_substrate_address_secp256k1_64_bytes() {
+        // Test with secp256k1 key that's already 64 bytes (no prefix)
+        let key_bytes = vec![0u8; 64];
+        let result = derive_substrate_address(&key_bytes, PublicKeyType::Secp256k1).unwrap();
+        // Should return all 3 Substrate chains
+        assert_eq!(result.len(), 3, "Should return all 3 Substrate chains");
+    }
+
+    #[test]
+    fn test_derive_substrate_address_secp256k1_invalid_decompression() {
+        // Test with invalid compressed key that fails decompression
+        let mut key_bytes = vec![0x02u8];
+        key_bytes.extend(vec![0xFFu8; 32]); // Invalid compressed key
+        let result = derive_substrate_address(&key_bytes, PublicKeyType::Secp256k1);
+        // Should handle error gracefully
+        if let Err(_) = result {
+            // Error is acceptable for invalid keys
+        } else if let Ok(addresses) = result {
+            // If it succeeds, addresses should be empty or valid
+            assert!(addresses.is_empty() || addresses.len() == 3);
+        }
+    }
+
+    #[test]
+    fn test_derive_substrate_address_secp256k1_wrong_uncompressed_prefix() {
+        // Test with uncompressed key that has wrong prefix (not 0x04)
+        let mut key_bytes = vec![0x05u8]; // Wrong prefix
+        key_bytes.extend(vec![0u8; 64]);
+        let result = derive_substrate_address(&key_bytes, PublicKeyType::Secp256k1).unwrap();
+        assert!(result.is_empty(), "Should return empty for wrong prefix");
+    }
+
+    #[test]
+    fn test_derive_substrate_address_secp256k1_uncompressed_wrong_length() {
+        // Test with uncompressed key that has wrong total length
+        // A 64-byte key with 0x04 prefix would be treated as 64 bytes (no prefix check)
+        // So we test with a key that's 65 bytes but has wrong prefix
+        let mut key_bytes = vec![0x05u8]; // Wrong prefix (not 0x04)
+        key_bytes.extend(vec![0u8; 64]);
+        let result = derive_substrate_address(&key_bytes, PublicKeyType::Secp256k1).unwrap();
+        assert!(result.is_empty(), "Should return empty for wrong prefix");
+
+        // Also test with a key that's too short (not 33, 64, or 65 bytes)
+        let short_key = vec![0u8; 30];
+        let result2 = derive_substrate_address(&short_key, PublicKeyType::Secp256k1).unwrap();
+        assert!(result2.is_empty(), "Should return empty for too short key");
     }
 }

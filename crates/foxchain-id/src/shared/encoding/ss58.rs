@@ -80,4 +80,68 @@ mod tests {
         let bytes = result.unwrap();
         assert_eq!(bytes.len(), 0);
     }
+
+    #[test]
+    fn test_encode_single_byte_prefix() {
+        // Test encoding with single-byte prefix (Polkadot, prefix 0)
+        let account_id = vec![0u8; 32];
+        let result = encode(0, &account_id);
+        assert!(result.is_ok());
+        let address = result.unwrap();
+        assert!(!address.is_empty());
+        // Should be valid Base58
+        assert!(address
+            .chars()
+            .all(|c| "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz".contains(c)));
+    }
+
+    #[test]
+    fn test_encode_two_byte_prefix() {
+        // Test encoding with two-byte prefix (e.g., prefix 100)
+        let account_id = vec![0u8; 32];
+        let result = encode(100, &account_id);
+        assert!(result.is_ok());
+        let address = result.unwrap();
+        assert!(!address.is_empty());
+    }
+
+    #[test]
+    fn test_encode_invalid_account_id_length() {
+        // Test encoding with invalid account ID length
+        let account_id = vec![0u8; 31]; // Too short
+        let result = encode(0, &account_id);
+        assert!(result.is_err());
+        assert!(result.unwrap_err().contains("Account ID must be 32 bytes"));
+    }
+
+    #[test]
+    fn test_encode_prefix_too_large() {
+        // Test encoding with prefix >= 16384
+        let account_id = vec![0u8; 32];
+        let result = encode(16384, &account_id);
+        assert!(result.is_err());
+        assert!(result
+            .unwrap_err()
+            .contains("Prefix must be less than 16384"));
+    }
+
+    #[test]
+    fn test_encode_kusama_prefix() {
+        // Test encoding with Kusama prefix (2)
+        let account_id = vec![0u8; 32];
+        let result = encode(2, &account_id);
+        assert!(result.is_ok());
+        let address = result.unwrap();
+        assert!(!address.is_empty());
+    }
+
+    #[test]
+    fn test_encode_substrate_prefix() {
+        // Test encoding with Generic Substrate prefix (42)
+        let account_id = vec![0u8; 32];
+        let result = encode(42, &account_id);
+        assert!(result.is_ok());
+        let address = result.unwrap();
+        assert!(!address.is_empty());
+    }
 }
