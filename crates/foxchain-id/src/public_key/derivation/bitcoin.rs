@@ -186,4 +186,72 @@ mod tests {
         // Should return error from decompression
         assert!(result.is_err());
     }
+
+    #[test]
+    fn test_derive_p2pkh_address_valid() {
+        // Test derive_p2pkh_address with valid hash160 (20 bytes)
+        let hash160 = vec![0u8; 20];
+        let result = derive_p2pkh_address(&hash160, 0x00).unwrap();
+        assert!(result.is_some());
+        let address = result.unwrap();
+        // Should be valid Base58Check encoded
+        assert!(!address.is_empty());
+        // Bitcoin P2PKH should start with '1'
+        assert!(address.starts_with('1'));
+    }
+
+    #[test]
+    fn test_derive_p2pkh_address_different_versions() {
+        // Test derive_p2pkh_address with different version bytes
+        let hash160 = vec![0u8; 20];
+
+        // Bitcoin version 0x00
+        let bitcoin_addr = derive_p2pkh_address(&hash160, 0x00).unwrap();
+        assert!(bitcoin_addr.is_some());
+        assert!(bitcoin_addr.unwrap().starts_with('1'));
+
+        // Litecoin version 0x30
+        let litecoin_addr = derive_p2pkh_address(&hash160, 0x30).unwrap();
+        assert!(litecoin_addr.is_some());
+        let ltc = litecoin_addr.unwrap();
+        assert!(ltc.starts_with('L'));
+
+        // Dogecoin version 0x1e
+        let dogecoin_addr = derive_p2pkh_address(&hash160, 0x1e).unwrap();
+        assert!(dogecoin_addr.is_some());
+        let doge = dogecoin_addr.unwrap();
+        assert!(doge.starts_with('D'));
+    }
+
+    #[test]
+    fn test_derive_bitcoin_addresses_compressed_wrong_format() {
+        // Test edge case: compressed key that decompresses but doesn't have expected format
+        // This tests the path where uncompressed.len() != 65 or uncompressed[0] != 0x04
+        // We can't easily create this case with real secp256k1 keys, but we can test
+        // the code path by mocking. However, since decompress_public_key always returns
+        // 65 bytes with 0x04 prefix on success, this path is hard to test directly.
+        // Instead, we test with various invalid lengths to ensure they return empty vec
+        let invalid_lengths = vec![32, 66, 100];
+        for len in invalid_lengths {
+            let key_bytes = vec![0u8; len];
+            let result = derive_bitcoin_addresses(&key_bytes).unwrap();
+            assert!(
+                result.is_empty(),
+                "Invalid length {} should return empty",
+                len
+            );
+        }
+    }
+
+    #[test]
+    fn test_derive_bitcoin_addresses_65_bytes_wrong_prefix() {
+        // Test with 65-byte key that doesn't start with 0x04
+        let mut key_bytes = vec![0x05]; // Wrong prefix
+        key_bytes.extend(vec![0u8; 64]);
+        let result = derive_bitcoin_addresses(&key_bytes).unwrap();
+        assert!(
+            result.is_empty(),
+            "65-byte key with wrong prefix should return empty"
+        );
+    }
 }
