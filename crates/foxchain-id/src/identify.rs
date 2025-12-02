@@ -1502,7 +1502,7 @@ mod tests {
         let result = identify(input).unwrap();
         
         assert!(!result.is_empty());
-        // Should match multiple secp256k1 chains (EVM, Bitcoin, Tron)
+        // Should match multiple g chains (EVM, Bitcoin, Tron)
         let secp256k1_chains = ["ethereum", "bitcoin", "tron"];
         let matched_chains: Vec<_> = result.iter().map(|c| c.chain.as_str()).collect();
         let matched_count = secp256k1_chains.iter()
