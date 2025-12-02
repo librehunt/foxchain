@@ -28,6 +28,7 @@ pub struct CategorySignature {
 
 impl CategorySignature {
     /// Derive signature from input characteristics
+    #[allow(dead_code)] // Used in tests and may be useful for future code
     pub fn from(chars: &InputCharacteristics) -> Self {
         // Normalize prefixes: keep only meaningful standard prefixes
         // For EVM: "0x" (not "0" or "0xd")

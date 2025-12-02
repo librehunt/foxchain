@@ -15,6 +15,7 @@ pub struct ChainMatch {
     /// Chain that matches
     pub chain_id: String,
     /// Chain name
+    #[allow(dead_code)] // Reserved for future use (debugging, display, etc.)
     pub chain_name: String,
     /// The possibility that matched
     pub possibility: InputPossibility,

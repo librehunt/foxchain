@@ -5,7 +5,6 @@
 
 pub mod build;
 pub mod chain_converter;
-pub mod groups;
 pub mod metadata;
 
 pub use build::Registry;

@@ -4,11 +4,10 @@
 //! automatically organizing chains by their format signatures.
 
 use crate::loaders::{load_index, load_chain};
-use crate::input::CategorySignature;
-use crate::registry::{groups::CandidateGroups, AddressMetadata, ChainMetadata};
+use crate::registry::ChainMetadata;
 use crate::registry::chain_converter::convert_chain_config;
 use std::collections::HashMap;
-use std::sync::{Arc, OnceLock};
+use std::sync::OnceLock;
 
 /// Global registry instance
 static REGISTRY: OnceLock<Registry> = OnceLock::new();
@@ -17,8 +16,6 @@ static REGISTRY: OnceLock<Registry> = OnceLock::new();
 pub struct Registry {
     /// All chain metadata
     pub chains: Vec<ChainMetadata>,
-    /// Groups organized by category signature
-    pub groups: CandidateGroups,
     /// Chain configs (for pipeline access)
     pub chain_configs: HashMap<String, crate::models::chain::ChainConfig>,
 }
@@ -55,98 +52,7 @@ impl Registry {
         
         let chain_configs: HashMap<String, _> = chain_configs_vec.into_iter().collect();
         
-        // Wrap chains in Arc for sharing
-        let chains_arc: Vec<Arc<ChainMetadata>> = chains.iter().map(|c| Arc::new(c.clone())).collect();
-        
-        // Build groups by category signature using functional style
-        let groups: CandidateGroups = chains_arc
-            .iter()
-            .flat_map(|chain| {
-                // Address format signatures
-                let addr_signatures = chain.address_formats.iter()
-                    .map(|addr_format| {
-                        (CategorySignature::from_metadata(addr_format), Arc::clone(chain))
-                    });
-                
-                // Public key format signatures
-                let pk_signatures = chain.public_key_formats.iter()
-                    .map(move |pk_format| {
-                        let signature = CategorySignature {
-                            char_set: pk_format.char_set,
-                            min_len: pk_format
-                                .exact_length
-                                .unwrap_or_else(|| pk_format.length_range.map(|(min, _)| min).unwrap_or(0)),
-                            max_len: pk_format
-                                .exact_length
-                                .unwrap_or_else(|| pk_format.length_range.map(|(_, max)| max).unwrap_or(usize::MAX)),
-                            has_hrp: !pk_format.hrps.is_empty(),
-                            prefixes: pk_format.prefixes.clone(),
-                            hrp_prefixes: pk_format.hrps.clone(),
-                            encoding_type: Some(pk_format.encoding),
-                        };
-                        (signature, Arc::clone(chain))
-                    });
-                
-                addr_signatures.chain(pk_signatures)
-            })
-            .fold(HashMap::new(), |mut acc, (signature, chain)| {
-                acc.entry(signature)
-                    .or_insert_with(Vec::new)
-                    .push(chain);
-                acc
-            });
-        
-        Registry { chains, groups, chain_configs }
-    }
-    
-    /// Get candidate chains for a given signature
-    pub fn get_candidates(&self, signature: &CategorySignature) -> Vec<&ChainMetadata> {
-        // Try exact match first
-        if let Some(candidates) = self.groups.get(signature) {
-            // Convert Arc<ChainMetadata> to &ChainMetadata using functional style
-            return candidates
-                .iter()
-                .filter_map(|arc_chain| {
-                    self.chains.iter().find(|c| c.id == arc_chain.id)
-                })
-                .collect();
-        }
-        
-        // Fallback: check if signature matches any metadata signature
-        // This handles cases where prefix normalization causes slight differences
-        self.chains
-            .iter()
-            .filter_map(|chain| {
-                chain.address_formats.iter()
-                    .find(|addr_format| {
-                        let metadata_sig = CategorySignature::from_metadata(addr_format);
-                        // Check if signatures are compatible - be lenient with matching
-                        // Encoding must match if both are Some
-                        let encoding_match = match (metadata_sig.encoding_type, signature.encoding_type) {
-                            (Some(m), Some(s)) => m == s,
-                            (None, None) => true,
-                            _ => false,
-                        };
-                        // Char set must match if both are Some
-                        let char_set_match = match (metadata_sig.char_set, signature.char_set) {
-                            (Some(m), Some(s)) => m == s,
-                            (None, None) => true,
-                            _ => false,
-                        };
-                        // Length must be in range
-                        let length_match = signature.min_len >= metadata_sig.min_len
-                            && signature.max_len <= metadata_sig.max_len;
-                        // Prefixes must overlap (metadata prefixes empty means no requirement, or input has matching prefix)
-                        let prefix_match = metadata_sig.prefixes.is_empty() || 
-                            signature.prefixes.iter().any(|p| metadata_sig.prefixes.contains(p));
-                        // HRP must match if required
-                        let hrp_match = !metadata_sig.has_hrp || signature.has_hrp;
-                        
-                        encoding_match && char_set_match && length_match && prefix_match && hrp_match
-                    })
-                    .map(|_| chain)
-            })
-            .collect()
+        Registry { chains, chain_configs }
     }
     
     /// Get the global registry instance
@@ -173,18 +79,6 @@ impl Registry {
             .collect()
     }
     
-    /// Find chains that support a given public key type (curve)
-    pub fn find_chains_for_public_key_type(&self, key_type: crate::registry::PublicKeyType) -> Vec<&ChainMetadata> {
-        self.chains
-            .iter()
-            .filter(|chain| {
-                chain.public_key_formats.iter().any(|pk_format| {
-                    pk_format.key_type == key_type
-                })
-            })
-            .collect()
-    }
-    
     /// Find chains that match address format characteristics
     #[allow(dead_code)] // Reserved for future use
     pub fn find_chains_for_address_format(&self, chars: &crate::input::InputCharacteristics) -> Vec<&ChainMetadata> {
@@ -206,7 +100,7 @@ impl Registry {
 
 /// Check if input characteristics match address metadata
 #[allow(dead_code)] // Used by find_chains_for_address methods
-fn matches_address_format(chars: &crate::input::InputCharacteristics, metadata: &AddressMetadata) -> bool {
+fn matches_address_format(chars: &crate::input::InputCharacteristics, metadata: &crate::registry::AddressMetadata) -> bool {
     // Check length
     if let Some(exact) = metadata.exact_length {
         if chars.length != exact {

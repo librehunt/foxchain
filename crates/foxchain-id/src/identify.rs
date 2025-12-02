@@ -9,7 +9,7 @@
 
 use crate::detectors::detect_address;
 use crate::input::{classify_input, extract_characteristics, match_input_with_metadata, InputCharacteristics, InputPossibility};
-use crate::registry::{AddressMetadata, Registry, PublicKeyType};
+use crate::registry::{Registry, PublicKeyType};
 use crate::pipelines::addresses::execute_pipeline;
 use crate::shared::derivation::decode_public_key;
 use crate::Error;
@@ -208,55 +208,6 @@ fn curve_name(key_type: PublicKeyType) -> &'static str {
         PublicKeyType::Ed25519 => "ed25519",
         PublicKeyType::Sr25519 => "sr25519",
     }
-}
-
-/// Check if input characteristics match address metadata
-fn matches_metadata(chars: &InputCharacteristics, metadata: &AddressMetadata) -> bool {
-    // Check length
-    if let Some(exact) = metadata.exact_length {
-        if chars.length != exact {
-            return false;
-        }
-    }
-    if let Some((min, max)) = metadata.length_range {
-        if chars.length < min || chars.length > max {
-            return false;
-        }
-    }
-    
-    // Check prefixes
-    if !metadata.prefixes.is_empty() {
-        if !metadata.prefixes.iter().any(|p| chars.prefixes.contains(p)) {
-            return false;
-        }
-    }
-    
-    // Check HRP
-    if !metadata.hrps.is_empty() {
-        if let Some(ref hrp) = chars.hrp {
-            if !metadata.hrps.iter().any(|h| hrp.starts_with(h)) {
-                return false;
-            }
-        } else {
-            return false;
-        }
-    }
-    
-    // Check character set
-    if let Some(ref char_set) = metadata.char_set {
-        if chars.char_set != *char_set {
-            return false;
-        }
-    }
-    
-    // Check encoding type - match if any of the detected encodings matches
-    if !chars.encoding.is_empty() {
-        if !chars.encoding.contains(&metadata.encoding) {
-            return false;
-        }
-    }
-    
-    true
 }
 
 

@@ -130,21 +130,6 @@ fn detect_encoding(input: &str) -> (Vec<EncodingType>, Option<String>) {
     (encodings, hrp)
 }
 
-/// Extract HRP from Bech32/Bech32m address
-fn extract_bech32_hrp(input: &str) -> Option<String> {
-    // Bech32 addresses have format: <hrp>1<data>
-    if let Some(pos) = input.rfind('1') {
-        if pos > 0 && pos < input.len() - 1 {
-            let hrp = &input[..pos];
-            // HRP must be lowercase and valid
-            if hrp.chars().all(|c| c.is_ascii_lowercase() || c.is_ascii_digit()) {
-                return Some(hrp.to_string());
-            }
-        }
-    }
-    None
-}
-
 /// Detect character set from input
 fn detect_char_set(input: &str, encodings: &[EncodingType]) -> CharSet {
     // Use the first encoding to determine char set, or fallback if empty
