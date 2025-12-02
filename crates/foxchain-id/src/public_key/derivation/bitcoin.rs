@@ -1,13 +1,14 @@
-//! Bitcoin address derivation from secp256k1 public keys
+//! Bitcoin ecosystem address derivation from secp256k1 public keys
 
 use crate::shared::crypto::hash::{double_sha256, hash160};
 use crate::shared::crypto::secp256k1;
 use crate::{Chain, Error};
 use base58::ToBase58;
 
-/// Derive Bitcoin addresses from secp256k1 public key
+/// Derive Bitcoin ecosystem addresses from secp256k1 public key
 ///
-/// Returns list of (chain, address) pairs for different Bitcoin address formats
+/// Returns list of (chain, address) pairs for Bitcoin, Litecoin, and Dogecoin.
+/// All three chains use the same derivation algorithm (hash160) but with different version bytes.
 pub fn derive_bitcoin_addresses(public_key: &[u8]) -> Result<Vec<(Chain, String)>, Error> {
     let mut addresses = Vec::new();
 
@@ -35,10 +36,20 @@ pub fn derive_bitcoin_addresses(public_key: &[u8]) -> Result<Vec<(Chain, String)
     // Compute hash160: RIPEMD160(SHA256(public_key))
     let hash160_bytes = hash160(key_bytes);
 
-    // Derive P2PKH address (version 0x00 for Bitcoin mainnet)
-    let p2pkh_address = derive_p2pkh_address(&hash160_bytes, 0x00)?;
-    if let Some(addr) = p2pkh_address {
+    // Derive P2PKH addresses for all Bitcoin ecosystem chains
+    // Bitcoin: version 0x00
+    if let Some(addr) = derive_p2pkh_address(&hash160_bytes, 0x00)? {
         addresses.push((Chain::Bitcoin, addr));
+    }
+
+    // Litecoin: version 0x30
+    if let Some(addr) = derive_p2pkh_address(&hash160_bytes, 0x30)? {
+        addresses.push((Chain::Litecoin, addr));
+    }
+
+    // Dogecoin: version 0x1e
+    if let Some(addr) = derive_p2pkh_address(&hash160_bytes, 0x1e)? {
+        addresses.push((Chain::Dogecoin, addr));
     }
 
     Ok(addresses)
@@ -81,8 +92,34 @@ mod tests {
             0x19, 0x9c, 0x47, 0xd0, 0x8f, 0xfb, 0x10, 0xd4, 0xb8,
         ];
         let result = derive_bitcoin_addresses(&key_bytes).unwrap();
-        assert!(!result.is_empty());
-        assert_eq!(result[0].0, Chain::Bitcoin);
+        assert_eq!(
+            result.len(),
+            3,
+            "Should have all 3 Bitcoin ecosystem chains"
+        );
+
+        // Verify all chains are present
+        assert!(result.iter().any(|(c, _)| matches!(c, Chain::Bitcoin)));
+        assert!(result.iter().any(|(c, _)| matches!(c, Chain::Litecoin)));
+        assert!(result.iter().any(|(c, _)| matches!(c, Chain::Dogecoin)));
+
+        // Verify addresses are valid Base58Check (start with correct prefixes)
+        for (chain, addr) in &result {
+            match chain {
+                Chain::Bitcoin => {
+                    assert!(addr.starts_with('1'), "Bitcoin P2PKH should start with '1'")
+                }
+                Chain::Litecoin => assert!(
+                    addr.starts_with('L'),
+                    "Litecoin P2PKH should start with 'L'"
+                ),
+                Chain::Dogecoin => assert!(
+                    addr.starts_with('D'),
+                    "Dogecoin P2PKH should start with 'D'"
+                ),
+                _ => panic!("Unexpected chain: {:?}", chain),
+            }
+        }
     }
 
     #[test]
@@ -90,8 +127,14 @@ mod tests {
         // Test with 64-byte public key (without 0x04 prefix)
         let key_bytes = vec![0u8; 64];
         let result = derive_bitcoin_addresses(&key_bytes).unwrap();
-        assert!(!result.is_empty());
-        assert_eq!(result[0].0, Chain::Bitcoin);
+        assert_eq!(
+            result.len(),
+            3,
+            "Should have all 3 Bitcoin ecosystem chains"
+        );
+        assert!(result.iter().any(|(c, _)| matches!(c, Chain::Bitcoin)));
+        assert!(result.iter().any(|(c, _)| matches!(c, Chain::Litecoin)));
+        assert!(result.iter().any(|(c, _)| matches!(c, Chain::Dogecoin)));
     }
 
     #[test]
@@ -103,8 +146,14 @@ mod tests {
             hex::decode("0279be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798")
                 .unwrap();
         let result = derive_bitcoin_addresses(&compressed).unwrap();
-        assert!(!result.is_empty());
-        assert_eq!(result[0].0, Chain::Bitcoin);
+        assert_eq!(
+            result.len(),
+            3,
+            "Should have all 3 Bitcoin ecosystem chains"
+        );
+        assert!(result.iter().any(|(c, _)| matches!(c, Chain::Bitcoin)));
+        assert!(result.iter().any(|(c, _)| matches!(c, Chain::Litecoin)));
+        assert!(result.iter().any(|(c, _)| matches!(c, Chain::Dogecoin)));
     }
 
     #[test]
@@ -136,5 +185,73 @@ mod tests {
         let result = derive_bitcoin_addresses(&invalid_compressed);
         // Should return error from decompression
         assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_derive_p2pkh_address_valid() {
+        // Test derive_p2pkh_address with valid hash160 (20 bytes)
+        let hash160 = vec![0u8; 20];
+        let result = derive_p2pkh_address(&hash160, 0x00).unwrap();
+        assert!(result.is_some());
+        let address = result.unwrap();
+        // Should be valid Base58Check encoded
+        assert!(!address.is_empty());
+        // Bitcoin P2PKH should start with '1'
+        assert!(address.starts_with('1'));
+    }
+
+    #[test]
+    fn test_derive_p2pkh_address_different_versions() {
+        // Test derive_p2pkh_address with different version bytes
+        let hash160 = vec![0u8; 20];
+
+        // Bitcoin version 0x00
+        let bitcoin_addr = derive_p2pkh_address(&hash160, 0x00).unwrap();
+        assert!(bitcoin_addr.is_some());
+        assert!(bitcoin_addr.unwrap().starts_with('1'));
+
+        // Litecoin version 0x30
+        let litecoin_addr = derive_p2pkh_address(&hash160, 0x30).unwrap();
+        assert!(litecoin_addr.is_some());
+        let ltc = litecoin_addr.unwrap();
+        assert!(ltc.starts_with('L'));
+
+        // Dogecoin version 0x1e
+        let dogecoin_addr = derive_p2pkh_address(&hash160, 0x1e).unwrap();
+        assert!(dogecoin_addr.is_some());
+        let doge = dogecoin_addr.unwrap();
+        assert!(doge.starts_with('D'));
+    }
+
+    #[test]
+    fn test_derive_bitcoin_addresses_compressed_wrong_format() {
+        // Test edge case: compressed key that decompresses but doesn't have expected format
+        // This tests the path where uncompressed.len() != 65 or uncompressed[0] != 0x04
+        // We can't easily create this case with real secp256k1 keys, but we can test
+        // the code path by mocking. However, since decompress_public_key always returns
+        // 65 bytes with 0x04 prefix on success, this path is hard to test directly.
+        // Instead, we test with various invalid lengths to ensure they return empty vec
+        let invalid_lengths = vec![32, 66, 100];
+        for len in invalid_lengths {
+            let key_bytes = vec![0u8; len];
+            let result = derive_bitcoin_addresses(&key_bytes).unwrap();
+            assert!(
+                result.is_empty(),
+                "Invalid length {} should return empty",
+                len
+            );
+        }
+    }
+
+    #[test]
+    fn test_derive_bitcoin_addresses_65_bytes_wrong_prefix() {
+        // Test with 65-byte key that doesn't start with 0x04
+        let mut key_bytes = vec![0x05]; // Wrong prefix
+        key_bytes.extend(vec![0u8; 64]);
+        let result = derive_bitcoin_addresses(&key_bytes).unwrap();
+        assert!(
+            result.is_empty(),
+            "65-byte key with wrong prefix should return empty"
+        );
     }
 }
