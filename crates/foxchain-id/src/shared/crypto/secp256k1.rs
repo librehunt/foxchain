@@ -16,17 +16,6 @@ use secp256k1::PublicKey;
 ///
 /// * `Ok(Vec<u8>)` - A 65-byte uncompressed public key (0x04 + 64 bytes)
 /// * `Err(Error)` - If the compressed key is invalid
-///
-/// # Example
-///
-/// ```
-/// use foxchain_id::shared::crypto::secp256k1::decompress_public_key;
-///
-/// let compressed = [0x02; 33]; // Example compressed key
-/// let uncompressed = decompress_public_key(&compressed)?;
-/// assert_eq!(uncompressed.len(), 65);
-/// assert_eq!(uncompressed[0], 0x04);
-/// ```
 pub fn decompress_public_key(compressed_key: &[u8]) -> Result<Vec<u8>, Error> {
     // Validate input length
     if compressed_key.len() != 33 {
