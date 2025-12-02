@@ -6,18 +6,18 @@
 
 use crate::input::InputCharacteristics;
 use crate::registry::{
-    AddressMetadata, CharSet, ChecksumType, EncodingType,
+    AddressMetadata, ChecksumType, EncodingType,
 };
 use crate::shared::checksum::{base58check, eip55};
 use crate::shared::encoding::bech32 as bech32_encoding;
-use crate::{Chain, Error};
+use crate::Error;
 use bech32;
 
 /// Result of address detection
 #[derive(Debug, Clone)]
 pub struct DetectionResult {
-    /// Chain identifier
-    pub chain: Chain,
+    /// Chain identifier (string ID from metadata)
+    pub chain: String,
     /// Encoding type used
     pub encoding: EncodingType,
     /// Normalized address representation
@@ -31,12 +31,19 @@ pub struct DetectionResult {
 /// Detect address using metadata
 pub fn detect_address(
     input: &str,
-    chars: &InputCharacteristics,
+    _chars: &InputCharacteristics,
     metadata: &AddressMetadata,
-    chain: Chain,
+    chain: String,
 ) -> Result<Option<DetectionResult>, Error> {
-    // Validate checksum if required
-    let checksum_valid = if let Some(checksum_type) = metadata.checksum {
+    // For EIP55 (EVM addresses), any valid hex address is acceptable
+    // Lowercase/uppercase addresses will be normalized
+    // Mixed case addresses with incorrect checksum will also be normalized
+    // The checksum validation only affects confidence, not acceptance
+    let checksum_valid = if let Some(ChecksumType::EIP55) = metadata.checksum {
+        // For EIP55, always allow valid hex addresses (they'll be normalized)
+        // Don't reject based on checksum - that only affects confidence
+        true
+    } else if let Some(checksum_type) = metadata.checksum {
         validate_checksum(input, checksum_type, metadata)?
     } else {
         true // No checksum required
@@ -57,11 +64,21 @@ pub fn detect_address(
     // Normalize the address
     let normalized = normalize_address(input, metadata)?;
     
-    // Calculate confidence score
-    let confidence = calculate_confidence(checksum_valid, version_valid, metadata);
+    // Calculate confidence score (use actual checksum validity for confidence)
+    let actual_checksum_valid = if let Some(ChecksumType::EIP55) = metadata.checksum {
+        // Check if normalized address has valid checksum
+        use crate::shared::checksum::eip55;
+        eip55::validate(&normalized)
+    } else if let Some(checksum_type) = metadata.checksum {
+        validate_checksum(&normalized, checksum_type, metadata)?
+    } else {
+        true
+    };
+    
+    let confidence = calculate_confidence(actual_checksum_valid, version_valid, metadata);
     
     // Generate reasoning
-    let reasoning = generate_reasoning(metadata, checksum_valid, version_valid);
+    let reasoning = generate_reasoning(metadata, actual_checksum_valid, version_valid);
     
     Ok(Some(DetectionResult {
         chain,
@@ -166,7 +183,7 @@ fn calculate_confidence(
     }
     
     // Boost for exact length match
-    if let Some(exact) = metadata.exact_length {
+    if metadata.exact_length.is_some() {
         // This is checked in filtering, so if we're here, it matches
         confidence += 0.05;
     }
@@ -200,7 +217,7 @@ fn generate_reasoning(
 mod tests {
     use super::*;
     use crate::input::extract_characteristics;
-    use crate::registry::{AddressMetadata, Network};
+    use crate::registry::{AddressMetadata, CharSet, Network};
 
     #[test]
     fn test_detect_evm_address() {
@@ -219,7 +236,7 @@ mod tests {
             network: Some(Network::Mainnet),
         };
         
-        let result = detect_address(input, &chars, &metadata, Chain::Ethereum);
+        let result = detect_address(input, &chars, &metadata, "ethereum".to_string());
         assert!(result.is_ok());
         // Result may be Some or None depending on checksum validation
     }

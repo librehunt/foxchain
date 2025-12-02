@@ -1,0 +1,7 @@
+{
+  "id": "secp256k1",
+  "key_lengths": [33, 65],
+  "compression": true,
+  "compatible_pipelines": ["evm", "bitcoin_p2pkh", "bitcoin_bech32", "cosmos", "tron", "ss58"]
+}
+

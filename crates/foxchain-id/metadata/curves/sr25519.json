@@ -1,0 +1,7 @@
+{
+  "id": "sr25519",
+  "key_lengths": [32],
+  "compression": false,
+  "compatible_pipelines": ["ss58"]
+}
+

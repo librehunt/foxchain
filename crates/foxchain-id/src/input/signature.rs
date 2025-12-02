@@ -29,14 +29,35 @@ pub struct CategorySignature {
 impl CategorySignature {
     /// Derive signature from input characteristics
     pub fn from(chars: &InputCharacteristics) -> Self {
+        // Normalize prefixes: keep only meaningful standard prefixes
+        // For EVM: "0x" (not "0" or "0xd")
+        // For Bech32: HRP is handled separately via hrp_prefixes
+        let normalized_prefixes: Vec<String> = {
+            let mut prefixes = chars.prefixes.clone();
+            prefixes.dedup();
+            // Prefer standard prefixes: "0x", "bc1", "tb1", "ltc1"
+            if prefixes.contains(&"0x".to_string()) {
+                vec!["0x".to_string()]
+            } else if let Some(bech32) = prefixes.iter().find(|p| p.starts_with("bc1") || p.starts_with("tb1") || p.starts_with("ltc1")) {
+                vec![bech32.clone()]
+            } else if !prefixes.is_empty() {
+                // Keep longest prefix as fallback
+                let mut sorted = prefixes;
+                sorted.sort_by(|a, b| b.len().cmp(&a.len()));
+                vec![sorted[0].clone()]
+            } else {
+                vec![]
+            }
+        };
+        
         CategorySignature {
             char_set: Some(chars.char_set),
             min_len: chars.length,
             max_len: chars.length,
             has_hrp: chars.hrp.is_some(),
-            prefixes: chars.prefixes.clone(),
+            prefixes: normalized_prefixes,
             hrp_prefixes: chars.hrp.as_ref().map(|h| vec![h.clone()]).unwrap_or_default(),
-            encoding_type: chars.encoding,
+            encoding_type: chars.encoding.first().copied(), // Use first encoding for signature
         }
     }
     
@@ -63,6 +84,7 @@ impl CategorySignature {
     }
     
     /// Check if this signature matches input characteristics
+    #[allow(dead_code)] // Reserved for future use
     pub fn matches(&self, chars: &InputCharacteristics) -> bool {
         // Check character set
         if let Some(ref char_set) = self.char_set {
@@ -103,9 +125,9 @@ impl CategorySignature {
             }
         }
         
-        // Check encoding type
+        // Check encoding type - match if any of the detected encodings matches
         if let Some(ref encoding) = self.encoding_type {
-            if chars.encoding != Some(*encoding) {
+            if !chars.encoding.contains(encoding) {
                 return false;
             }
         }

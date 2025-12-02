@@ -4,10 +4,11 @@
 //! string (address, public key, or private key) belongs to.
 
 mod detectors;
-mod formats;
 mod identify;
 mod input;
-mod public_key;
+mod loaders;
+mod models;
+mod pipelines;
 mod registry;
 mod shared;
 
@@ -30,113 +31,8 @@ pub use identify::{identify as identify_all, IdentificationCandidate, InputType}
 /// }
 /// # Ok::<(), foxchain_id::Error>(())
 /// ```
-///
-/// For backward compatibility, use `identify_first()` to get a single result.
 pub fn identify(input: &str) -> Result<Vec<IdentificationCandidate>, Error> {
     identify_all(input)
-}
-
-/// Identify the blockchain(s) for a given input string (backward compatibility).
-///
-/// Returns the first result in the old format for backward compatibility.
-/// New code should use `identify()` which returns all candidates.
-///
-/// # Example
-///
-/// ```rust
-/// use foxchain_id::identify_first;
-///
-/// let result = identify_first("0x742d35Cc6634C0532925a3b844Bc454e4438f44e")?;
-/// println!("Normalized: {}", result.normalized);
-/// for candidate in result.candidates {
-///     println!("Chain: {:?}, Confidence: {}", candidate.chain, candidate.confidence);
-/// }
-/// # Ok::<(), foxchain_id::Error>(())
-/// ```
-pub fn identify_first(input: &str) -> Result<IdentificationResult, Error> {
-    let candidates = identify(input)?;
-    
-    if candidates.is_empty() {
-        return Err(Error::InvalidInput(format!(
-            "Unable to identify address format: {}",
-            input
-        )));
-    }
-    
-    // Use the first (highest confidence) candidate for normalized address
-    let first = &candidates[0];
-    
-    Ok(IdentificationResult {
-        normalized: first.normalized.clone(),
-        candidates: candidates
-            .into_iter()
-            .map(|c| ChainCandidate {
-                chain: c.chain,
-                confidence: c.confidence,
-                reasoning: c.reasoning,
-            })
-            .collect(),
-    })
-}
-
-/// Result of identification process
-#[derive(Debug, Clone)]
-pub struct IdentificationResult {
-    /// Normalized address representation
-    pub normalized: String,
-    /// List of candidate chains with confidence scores
-    pub candidates: Vec<ChainCandidate>,
-}
-
-/// A candidate chain with confidence score
-#[derive(Debug, Clone)]
-pub struct ChainCandidate {
-    /// Chain identifier
-    pub chain: Chain,
-    /// Confidence score (0.0 to 1.0)
-    pub confidence: f64,
-    /// Reasoning for this candidate
-    pub reasoning: String,
-}
-
-/// Supported blockchain identifiers
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum Chain {
-    // EVM chains
-    Ethereum,
-    Polygon,
-    BSC,
-    Avalanche,
-    Arbitrum,
-    Optimism,
-    Base,
-    Fantom,
-    Celo,
-    Gnosis,
-    // Bitcoin ecosystem
-    Bitcoin,
-    Litecoin,
-    Dogecoin,
-    // Other chains
-    Solana,
-    Tron,
-    // Cosmos ecosystem
-    CosmosHub,
-    Osmosis,
-    Juno,
-    Akash,
-    Stargaze,
-    SecretNetwork,
-    Terra,
-    Kava,
-    Regen,
-    Sentinel,
-    // Substrate ecosystem
-    Polkadot,
-    Kusama,
-    Substrate, // Generic Substrate chain
-    // Other chains
-    Cardano,
 }
 
 /// Errors that can occur during identification
@@ -168,11 +64,14 @@ mod tests {
         // Test with lowercase address - should be normalized
         let input = "0xd8da6bf26964af9d7eed9e03e53415d37aa96045";
         let result = identify(input);
+        if let Err(e) = &result {
+            eprintln!("Error: {}", e);
+        }
         assert!(result.is_ok());
         let candidates = result.unwrap();
         assert!(!candidates.is_empty());
         // Should return multiple EVM chains
-        assert!(candidates.iter().any(|c| c.chain == Chain::Ethereum));
+        assert!(candidates.iter().any(|c| c.chain == "ethereum"));
         // First candidate should have highest confidence
         assert!(candidates[0].confidence > 0.0);
         // Should be normalized to checksum format
@@ -204,12 +103,8 @@ mod tests {
         // Should have multiple EVM chains
         assert!(candidates.len() >= 1);
         // All should be EVM chains
-        assert!(candidates.iter().all(|c| matches!(
-            c.chain,
-            Chain::Ethereum | Chain::Polygon | Chain::BSC | Chain::Avalanche
-                | Chain::Arbitrum | Chain::Optimism | Chain::Base | Chain::Fantom
-                | Chain::Celo | Chain::Gnosis
-        )));
+        let evm_chains = ["ethereum", "polygon", "bsc", "avalanche", "arbitrum", "optimism", "base", "fantom", "celo", "gnosis"];
+        assert!(candidates.iter().all(|c| evm_chains.contains(&c.chain.as_str())));
     }
 
     #[test]
@@ -227,11 +122,12 @@ mod tests {
     #[test]
     fn test_identify_unrecognized_format() {
         // Test with a string that doesn't match any known format
-        // This should trigger the final error path in identify()
+        // This should trigger the classifier error path (returns early)
         let result = identify("xyz123abc");
         assert!(result.is_err());
         if let Err(Error::InvalidInput(msg)) = result {
-            assert!(msg.contains("Unable to identify address format"));
+            // Classifier returns "Unable to classify input format" when no possibilities found
+            assert!(msg.contains("Unable to classify input format") || msg.contains("Unable to identify address format"));
             assert!(msg.contains("xyz123abc"));
         } else {
             panic!("Expected InvalidInput error");
@@ -244,7 +140,8 @@ mod tests {
         let result = identify("");
         assert!(result.is_err());
         if let Err(Error::InvalidInput(msg)) = result {
-            assert!(msg.contains("Unable to identify address format"));
+            // Classifier returns "Unable to classify input format" when no possibilities found
+            assert!(msg.contains("Unable to classify input format") || msg.contains("Unable to identify address format"));
         } else {
             panic!("Expected InvalidInput error");
         }
@@ -271,7 +168,7 @@ mod tests {
         if result.is_ok() {
             let candidates = result.unwrap();
             assert!(!candidates.is_empty());
-            assert!(candidates.iter().any(|c| c.chain == Chain::Tron));
+            assert!(candidates.iter().any(|c| c.chain == "tron"));
         }
     }
 
@@ -294,15 +191,4 @@ mod tests {
         }
     }
 
-    #[test]
-    fn test_identify_first_backward_compatibility() {
-        // Test backward compatibility helper
-        let input = "0xd8da6bf26964af9d7eed9e03e53415d37aa96045";
-        let result = identify_first(input);
-        assert!(result.is_ok());
-        let id_result = result.unwrap();
-        assert!(!id_result.candidates.is_empty());
-        assert_eq!(id_result.candidates[0].chain, Chain::Ethereum);
-        assert!(id_result.normalized.starts_with("0x"));
-    }
 }

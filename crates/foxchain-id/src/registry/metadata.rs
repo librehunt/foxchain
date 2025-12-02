@@ -4,11 +4,12 @@
 //! entire detection pipeline. All format detection logic is declarative,
 //! eliminating the need for hardcoded heuristics.
 
+
 /// Metadata for a blockchain chain
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ChainMetadata {
-    /// Chain identifier
-    pub id: crate::Chain,
+    /// Chain identifier (string ID from JSON metadata)
+    pub id: String,
     /// Human-readable chain name
     pub name: String,
     /// All supported address formats for this chain
@@ -38,6 +39,97 @@ pub struct AddressMetadata {
     pub checksum: Option<ChecksumType>,
     /// Network (mainnet/testnet)
     pub network: Option<Network>,
+}
+
+impl AddressMetadata {
+    /// Validate raw input against this address metadata
+    ///
+    /// Performs structural validation: checksums, decodes, prefix/HRP rules.
+    /// This is the metadata-driven validation stage.
+    pub fn validate_raw(
+        &self,
+        raw: &str,
+        chars: &crate::input::InputCharacteristics,
+    ) -> bool {
+        // Check encoding type matches - try all detected encodings
+        if !chars.encoding.is_empty() {
+            if !chars.encoding.contains(&self.encoding) {
+                return false;
+            }
+        }
+        
+        // Check length
+        if let Some(exact) = self.exact_length {
+            if chars.length != exact {
+                return false;
+            }
+        }
+        if let Some((min, max)) = self.length_range {
+            if chars.length < min || chars.length > max {
+                return false;
+            }
+        }
+        
+        // Check prefixes
+        // For Base58Check with version bytes, prefix is determined by version byte
+        // so we skip prefix check and rely on version byte validation instead
+        if !self.prefixes.is_empty() {
+            let skip_prefix_check = matches!(self.encoding, EncodingType::Base58Check) && !self.version_bytes.is_empty();
+            if !skip_prefix_check {
+                if !self.prefixes.iter().any(|p| chars.prefixes.contains(p)) {
+                    return false;
+                }
+            }
+        }
+        
+        // Check HRP
+        if !self.hrps.is_empty() {
+            if let Some(ref hrp) = chars.hrp {
+                if !self.hrps.iter().any(|h| hrp.starts_with(h)) {
+                    return false;
+                }
+            } else {
+                return false;
+            }
+        }
+        
+        // Structural validation based on encoding and checksum
+        match self.encoding {
+            EncodingType::Hex => {
+                // EVM: For hex encoding, just validate it's valid hex
+                // Don't enforce EIP55 checksum here - that's done in detect_address
+                // Lowercase addresses are structurally valid and will be normalized later
+                use crate::shared::encoding::hex;
+                hex::decode(raw).is_ok()
+            }
+            EncodingType::Bech32 | EncodingType::Bech32m => {
+                use crate::shared::encoding::bech32 as bech32_encoding;
+                bech32_encoding::decode(raw).is_ok()
+            }
+            EncodingType::Base58Check => {
+                use crate::shared::checksum::base58check;
+                if let Some((version, _)) = base58check::validate(raw).unwrap_or(None) {
+                    // Check version bytes if specified
+                    if !self.version_bytes.is_empty() {
+                        self.version_bytes.contains(&version)
+                    } else {
+                        true
+                    }
+                } else {
+                    false
+                }
+            }
+            EncodingType::SS58 => {
+                use crate::shared::encoding::ss58;
+                ss58::decode(raw).is_ok()
+            }
+            EncodingType::Base58 => {
+                // Base58 validation - just check if it's valid Base58
+                use crate::shared::encoding::base58;
+                base58::decode(raw).is_ok()
+            }
+        }
+    }
 }
 
 /// Metadata for a public key format
@@ -93,6 +185,7 @@ pub enum CharSet {
 
 /// Checksum type used for validation
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[allow(dead_code)] // Variants used in pattern matching via metadata
 pub enum ChecksumType {
     /// EIP-55 checksum (Ethereum)
     EIP55,
@@ -112,6 +205,7 @@ pub enum Network {
     /// Mainnet
     Mainnet,
     /// Testnet
+    #[allow(dead_code)] // Reserved for future use
     Testnet,
 }
 
@@ -123,6 +217,7 @@ pub enum PublicKeyType {
     /// Ed25519 public key (32 bytes)
     Ed25519,
     /// sr25519 public key (32 bytes)
+    #[allow(dead_code)] // Reserved for future use
     Sr25519,
 }
 

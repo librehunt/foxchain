@@ -1,0 +1,10 @@
+{
+  "id": "bitcoin_bech32",
+  "curve": "secp256k1",
+  "steps": [
+    { "type": "hash", "algorithm": "sha256", "input": "pubkey", "output": "h1" },
+    { "type": "hash", "algorithm": "ripemd160", "input": "h1", "output": "payload" },
+    { "type": "encode", "format": "bech32", "input": "payload" }
+  ]
+}
+

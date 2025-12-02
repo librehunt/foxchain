@@ -4,6 +4,7 @@
 //! at startup, automatically organizing chains by their format signatures.
 
 pub mod build;
+pub mod chain_converter;
 pub mod groups;
 pub mod metadata;
 

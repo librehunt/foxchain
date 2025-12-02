@@ -1,0 +1,9 @@
+{
+  "id": "ss58",
+  "curve": "secp256k1",
+  "steps": [
+    { "type": "hash", "algorithm": "blake2b_256", "input": "pubkey", "output": "account_id" },
+    { "type": "encode", "format": "ss58", "input": "account_id" }
+  ]
+}
+

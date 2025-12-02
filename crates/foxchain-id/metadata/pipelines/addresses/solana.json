@@ -1,0 +1,8 @@
+{
+  "id": "solana",
+  "curve": "ed25519",
+  "steps": [
+    { "type": "encode", "format": "base58", "input": "pubkey" }
+  ]
+}
+

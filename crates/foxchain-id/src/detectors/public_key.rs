@@ -6,14 +6,14 @@
 use crate::input::InputCharacteristics;
 use crate::registry::{EncodingType, PublicKeyMetadata, PublicKeyType};
 use crate::shared::encoding::{base58, bech32 as bech32_encoding, hex};
-use crate::{Chain, Error};
+use crate::Error;
 
 /// Detect public key using metadata
 pub fn detect_public_key(
     input: &str,
     chars: &InputCharacteristics,
     metadata: &PublicKeyMetadata,
-    chain: Chain,
+    chain: String,
 ) -> Result<Option<super::address::DetectionResult>, Error> {
     // Decode based on encoding type
     let key_bytes = match metadata.encoding {
@@ -183,7 +183,7 @@ mod tests {
             checksum: None,
         };
         
-        let result = detect_public_key(input, &chars, &metadata, Chain::Ethereum);
+        let result = detect_public_key(input, &chars, &metadata, "ethereum".to_string());
         assert!(result.is_ok());
     }
 }
