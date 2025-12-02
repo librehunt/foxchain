@@ -212,4 +212,51 @@ mod tests {
         let hash2 = sha3_256(data);
         assert_eq!(hash, hash2);
     }
+
+    #[test]
+    fn test_derive_cardano_address_empty_key() {
+        // Test with empty key (0 bytes)
+        let key_bytes = vec![];
+        let result = derive_cardano_address(&key_bytes).unwrap();
+        assert!(result.is_empty(), "Should return empty for empty key");
+    }
+
+    #[test]
+    fn test_derive_cardano_address_33_bytes() {
+        // Test with key that's too long (33 bytes instead of 32)
+        let key_bytes = vec![0u8; 33];
+        let result = derive_cardano_address(&key_bytes).unwrap();
+        assert!(result.is_empty(), "Should return empty for wrong length");
+    }
+
+    #[test]
+    fn test_derive_cardano_address_all_address_types() {
+        // Test that all 4 address types are generated correctly
+        let key_bytes = vec![0u8; 32];
+        let result = derive_cardano_address(&key_bytes).unwrap();
+        assert_eq!(result.len(), 4);
+
+        // Verify we have exactly one of each type
+        let mut payment_mainnet = false;
+        let mut payment_testnet = false;
+        let mut stake_mainnet = false;
+        let mut stake_testnet = false;
+
+        for (_, address) in &result {
+            if address.starts_with("addr1") {
+                payment_mainnet = true;
+            } else if address.starts_with("addr_test1") {
+                payment_testnet = true;
+            } else if address.starts_with("stake1") {
+                stake_mainnet = true;
+            } else if address.starts_with("stake_test1") {
+                stake_testnet = true;
+            }
+        }
+
+        assert!(payment_mainnet, "Should have payment mainnet address");
+        assert!(payment_testnet, "Should have payment testnet address");
+        assert!(stake_mainnet, "Should have stake mainnet address");
+        assert!(stake_testnet, "Should have stake testnet address");
+    }
 }

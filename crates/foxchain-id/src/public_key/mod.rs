@@ -690,13 +690,13 @@ mod tests {
         let result = detect_public_key(key_hex).unwrap();
         assert!(result.is_some());
         let id_result = result.unwrap();
-        
+
         // Should have Tron chain
         assert!(id_result
             .candidates
             .iter()
             .any(|c| matches!(c.chain, Chain::Tron)));
-        
+
         let tron = id_result
             .candidates
             .iter()
@@ -713,7 +713,7 @@ mod tests {
         let result = detect_public_key(key_hex).unwrap();
         assert!(result.is_some());
         let id_result = result.unwrap();
-        
+
         // Should have Cardano chains (4 addresses: payment/stake, mainnet/testnet)
         let cardano_chains: Vec<_> = id_result
             .candidates
@@ -721,11 +721,91 @@ mod tests {
             .filter(|c| matches!(c.chain, Chain::Cardano))
             .collect();
         assert_eq!(cardano_chains.len(), 4, "Should have 4 Cardano addresses");
-        
+
         // Verify all have correct confidence
         for candidate in cardano_chains {
             assert_eq!(candidate.confidence, 0.80);
             assert!(candidate.reasoning.contains("Cardano"));
         }
+    }
+
+    #[test]
+    fn test_detect_public_key_secp256k1_tron_base58_format() {
+        // Test secp256k1 key in Base58 format that should derive Tron address
+        use base58::ToBase58;
+        let mut key_bytes = vec![0x04u8];
+        key_bytes.extend(vec![0u8; 64]);
+        let base58_key = key_bytes.to_base58();
+
+        let result = detect_public_key(&base58_key).unwrap();
+        assert!(result.is_some());
+        let id_result = result.unwrap();
+
+        // Should have Tron chain
+        assert!(id_result
+            .candidates
+            .iter()
+            .any(|c| matches!(c.chain, Chain::Tron)));
+
+        // Verify reasoning mentions Base58 format
+        let tron = id_result
+            .candidates
+            .iter()
+            .find(|c| matches!(c.chain, Chain::Tron))
+            .unwrap();
+        assert!(tron.reasoning.contains("base58"));
+    }
+
+    #[test]
+    fn test_detect_public_key_secp256k1_tron_bech32_format() {
+        // Test secp256k1 key in Bech32 format that should derive Tron address
+        use bech32::{ToBase32, Variant};
+        let mut key_bytes = vec![0x04u8];
+        key_bytes.extend(vec![0u8; 64]);
+        let data_u5 = key_bytes.to_base32();
+        let bech32_key = bech32::encode("pub", &data_u5, Variant::Bech32).unwrap();
+
+        let result = detect_public_key(&bech32_key).unwrap();
+        assert!(result.is_some());
+        let id_result = result.unwrap();
+
+        // Should have Tron chain
+        assert!(id_result
+            .candidates
+            .iter()
+            .any(|c| matches!(c.chain, Chain::Tron)));
+
+        // Verify reasoning mentions Bech32 format
+        let tron = id_result
+            .candidates
+            .iter()
+            .find(|c| matches!(c.chain, Chain::Tron))
+            .unwrap();
+        assert!(tron.reasoning.contains("bech32"));
+    }
+
+    #[test]
+    fn test_detect_public_key_ed25519_cardano_bech32_format() {
+        // Test Ed25519 key in Bech32 format that should derive Cardano addresses
+        use bech32::{ToBase32, Variant};
+        let key_bytes = vec![0u8; 32];
+        let data_u5 = key_bytes.to_base32();
+        let bech32_key = bech32::encode("npub", &data_u5, Variant::Bech32).unwrap();
+
+        let result = detect_public_key(&bech32_key).unwrap();
+        assert!(result.is_some());
+        let id_result = result.unwrap();
+
+        // Should have Cardano chains
+        let cardano_chains: Vec<_> = id_result
+            .candidates
+            .iter()
+            .filter(|c| matches!(c.chain, Chain::Cardano))
+            .collect();
+        assert_eq!(cardano_chains.len(), 4);
+
+        // Verify reasoning mentions Bech32 format
+        let cardano = cardano_chains.first().unwrap();
+        assert!(cardano.reasoning.contains("bech32"));
     }
 }
