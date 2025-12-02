@@ -6,6 +6,7 @@ This directory contains detailed documentation about various blockchain address 
 
 ### Implemented Formats
 
+- [Supported Chains](supported-chains.md) - **Complete reference** of all 28 supported chains, address formats, and public key types
 - [EVM Addresses](evm-addresses.md) - Ethereum and EVM-compatible chains
 - [Bitcoin Addresses](bitcoin-addresses.md) - Bitcoin, Litecoin, Dogecoin (P2PKH, P2SH, Bech32)
 - [Solana Addresses](solana-addresses.md) - Solana public keys (base58)
