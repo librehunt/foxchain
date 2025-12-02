@@ -221,3 +221,209 @@ pub enum PublicKeyType {
     Sr25519,
 }
 
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::input::extract_characteristics;
+
+    #[test]
+    fn test_validate_raw_hex_encoding_mismatch() {
+        let metadata = AddressMetadata {
+            encoding: EncodingType::Hex,
+            char_set: Some(CharSet::Hex),
+            exact_length: Some(42),
+            length_range: None,
+            prefixes: vec!["0x".to_string()],
+            hrps: vec![],
+            version_bytes: vec![],
+            checksum: None,
+            network: Some(Network::Mainnet),
+        };
+        
+        let input = "1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa"; // Base58, not hex
+        let chars = extract_characteristics(input);
+        
+        assert!(!metadata.validate_raw(input, &chars));
+    }
+
+    #[test]
+    fn test_validate_raw_length_mismatch() {
+        let metadata = AddressMetadata {
+            encoding: EncodingType::Hex,
+            char_set: Some(CharSet::Hex),
+            exact_length: Some(42),
+            length_range: None,
+            prefixes: vec!["0x".to_string()],
+            hrps: vec![],
+            version_bytes: vec![],
+            checksum: None,
+            network: Some(Network::Mainnet),
+        };
+        
+        let input = "0x1234"; // Too short
+        let chars = extract_characteristics(input);
+        
+        assert!(!metadata.validate_raw(input, &chars));
+    }
+
+    #[test]
+    fn test_validate_raw_length_range() {
+        let metadata = AddressMetadata {
+            encoding: EncodingType::Base58Check, // Use Base58Check for Bitcoin address
+            char_set: Some(CharSet::Base58),
+            exact_length: None,
+            length_range: Some((26, 35)),
+            prefixes: vec![],
+            hrps: vec![],
+            version_bytes: vec![0x00], // Bitcoin P2PKH version
+            checksum: Some(ChecksumType::Base58Check),
+            network: Some(Network::Mainnet),
+        };
+        
+        let input = "1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa"; // 34 chars, within range, valid Bitcoin address
+        let chars = extract_characteristics(input);
+        
+        assert!(metadata.validate_raw(input, &chars));
+    }
+
+    #[test]
+    fn test_validate_raw_length_range_out_of_bounds() {
+        let metadata = AddressMetadata {
+            encoding: EncodingType::Base58,
+            char_set: Some(CharSet::Base58),
+            exact_length: None,
+            length_range: Some((26, 35)),
+            prefixes: vec![],
+            hrps: vec![],
+            version_bytes: vec![],
+            checksum: None,
+            network: Some(Network::Mainnet),
+        };
+        
+        let input = "123"; // Too short
+        let chars = extract_characteristics(input);
+        
+        assert!(!metadata.validate_raw(input, &chars));
+    }
+
+    #[test]
+    fn test_validate_raw_hrp_mismatch() {
+        let metadata = AddressMetadata {
+            encoding: EncodingType::Bech32,
+            char_set: Some(CharSet::Base32),
+            exact_length: None,
+            length_range: Some((14, 90)),
+            prefixes: vec![],
+            hrps: vec!["cosmos".to_string()],
+            version_bytes: vec![],
+            checksum: None,
+            network: Some(Network::Mainnet),
+        };
+        
+        let input = "osmo1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4"; // Wrong HRP (osmo, not cosmos)
+        let chars = extract_characteristics(input);
+        
+        assert!(!metadata.validate_raw(input, &chars));
+    }
+
+    #[test]
+    fn test_validate_raw_hrp_required_but_missing() {
+        let metadata = AddressMetadata {
+            encoding: EncodingType::Bech32,
+            char_set: Some(CharSet::Base32),
+            exact_length: None,
+            length_range: Some((14, 90)),
+            prefixes: vec![],
+            hrps: vec!["cosmos".to_string()],
+            version_bytes: vec![],
+            checksum: None,
+            network: Some(Network::Mainnet),
+        };
+        
+        let input = "0x742d35Cc6634C0532925a3b844Bc454e4438f44e"; // No HRP
+        let chars = extract_characteristics(input);
+        
+        assert!(!metadata.validate_raw(input, &chars));
+    }
+
+    #[test]
+    fn test_validate_raw_base58check_version_bytes() {
+        let metadata = AddressMetadata {
+            encoding: EncodingType::Base58Check,
+            char_set: Some(CharSet::Base58),
+            exact_length: None,
+            length_range: Some((26, 35)),
+            prefixes: vec!["1".to_string()], // Prefix check skipped when version_bytes present
+            hrps: vec![],
+            version_bytes: vec![0x00], // Bitcoin P2PKH version byte
+            checksum: Some(ChecksumType::Base58Check),
+            network: Some(Network::Mainnet),
+        };
+        
+        let input = "1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa"; // Valid Bitcoin P2PKH
+        let chars = extract_characteristics(input);
+        
+        assert!(metadata.validate_raw(input, &chars));
+    }
+
+    #[test]
+    fn test_validate_raw_base58check_wrong_version() {
+        let metadata = AddressMetadata {
+            encoding: EncodingType::Base58Check,
+            char_set: Some(CharSet::Base58),
+            exact_length: None,
+            length_range: Some((26, 35)),
+            prefixes: vec![],
+            hrps: vec![],
+            version_bytes: vec![0x05], // P2SH version byte
+            checksum: Some(ChecksumType::Base58Check),
+            network: Some(Network::Mainnet),
+        };
+        
+        let input = "1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa"; // P2PKH (version 0), not P2SH
+        let chars = extract_characteristics(input);
+        
+        assert!(!metadata.validate_raw(input, &chars));
+    }
+
+    #[test]
+    fn test_validate_raw_invalid_hex() {
+        let metadata = AddressMetadata {
+            encoding: EncodingType::Hex,
+            char_set: Some(CharSet::Hex),
+            exact_length: Some(42),
+            length_range: None,
+            prefixes: vec!["0x".to_string()],
+            hrps: vec![],
+            version_bytes: vec![],
+            checksum: None,
+            network: Some(Network::Mainnet),
+        };
+        
+        let input = "0xgggggggggggggggggggggggggggggggggggggggg"; // Invalid hex
+        let chars = extract_characteristics(input);
+        
+        assert!(!metadata.validate_raw(input, &chars));
+    }
+
+    #[test]
+    fn test_validate_raw_invalid_bech32() {
+        let metadata = AddressMetadata {
+            encoding: EncodingType::Bech32,
+            char_set: Some(CharSet::Base32),
+            exact_length: None,
+            length_range: Some((14, 90)),
+            prefixes: vec![],
+            hrps: vec!["cosmos".to_string()],
+            version_bytes: vec![],
+            checksum: None,
+            network: Some(Network::Mainnet),
+        };
+        
+        let input = "cosmos1invalid"; // Invalid Bech32
+        let chars = extract_characteristics(input);
+        
+        assert!(!metadata.validate_raw(input, &chars));
+    }
+}
+
