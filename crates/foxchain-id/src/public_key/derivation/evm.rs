@@ -3,9 +3,12 @@
 use crate::shared::crypto::hash::keccak256;
 use crate::shared::crypto::secp256k1;
 use crate::shared::encoding::hex;
-use crate::Error;
+use crate::{Chain, Error};
 
-/// Derive EVM address from secp256k1 public key
+/// Derive EVM addresses from secp256k1 public key
+///
+/// Returns all 10 EVM-compatible chains with the same derived address.
+/// EVM addresses are identical across all EVM chains.
 ///
 /// Process:
 /// 1. Take public key (compressed or uncompressed)
@@ -13,7 +16,8 @@ use crate::Error;
 /// 3. Compute Keccak-256 hash
 /// 4. Take last 20 bytes
 /// 5. Format as 0x-prefixed hex
-pub fn derive_evm_address(public_key: &[u8]) -> Result<Option<String>, Error> {
+/// 6. Return all 10 EVM chains with the same address
+pub fn derive_evm_address(public_key: &[u8]) -> Result<Vec<(Chain, String)>, Error> {
     // Handle compressed and uncompressed keys
     let key_bytes_64 = if public_key.len() == 33 {
         // Compressed key - decompress it
@@ -22,13 +26,13 @@ pub fn derive_evm_address(public_key: &[u8]) -> Result<Option<String>, Error> {
         if uncompressed.len() == 65 && uncompressed[0] == 0x04 {
             uncompressed[1..65].to_vec()
         } else {
-            return Ok(None);
+            return Ok(Vec::new());
         }
     } else if public_key.len() == 65 && public_key[0] == 0x04 {
         // Uncompressed key - extract the 64-byte key (skip 0x04 prefix)
         public_key[1..65].to_vec()
     } else {
-        return Ok(None);
+        return Ok(Vec::new());
     };
 
     let key_bytes = &key_bytes_64;
@@ -40,7 +44,21 @@ pub fn derive_evm_address(public_key: &[u8]) -> Result<Option<String>, Error> {
     let address_bytes = &hash[12..32];
 
     // Format as hex with 0x prefix
-    Ok(Some(hex::encode(address_bytes)))
+    let address = hex::encode(address_bytes);
+
+    // Return all 10 EVM chains with the same address
+    Ok(vec![
+        (Chain::Ethereum, address.clone()),
+        (Chain::Polygon, address.clone()),
+        (Chain::BSC, address.clone()),
+        (Chain::Avalanche, address.clone()),
+        (Chain::Arbitrum, address.clone()),
+        (Chain::Optimism, address.clone()),
+        (Chain::Base, address.clone()),
+        (Chain::Fantom, address.clone()),
+        (Chain::Celo, address.clone()),
+        (Chain::Gnosis, address),
+    ])
 }
 
 #[cfg(test)]
@@ -58,10 +76,26 @@ mod tests {
             0x19, 0x9c, 0x47, 0xd0, 0x8f, 0xfb, 0x10, 0xd4, 0xb8,
         ];
         let result = derive_evm_address(&key_bytes).unwrap();
-        assert!(result.is_some());
-        let address = result.unwrap();
+        assert_eq!(result.len(), 10);
+        // All chains should have the same address
+        let address = &result[0].1;
         assert!(address.starts_with("0x"));
         assert_eq!(address.len(), 42);
+        // Verify all chains are present
+        assert!(result.iter().any(|(c, _)| matches!(c, Chain::Ethereum)));
+        assert!(result.iter().any(|(c, _)| matches!(c, Chain::Polygon)));
+        assert!(result.iter().any(|(c, _)| matches!(c, Chain::BSC)));
+        assert!(result.iter().any(|(c, _)| matches!(c, Chain::Avalanche)));
+        assert!(result.iter().any(|(c, _)| matches!(c, Chain::Arbitrum)));
+        assert!(result.iter().any(|(c, _)| matches!(c, Chain::Optimism)));
+        assert!(result.iter().any(|(c, _)| matches!(c, Chain::Base)));
+        assert!(result.iter().any(|(c, _)| matches!(c, Chain::Fantom)));
+        assert!(result.iter().any(|(c, _)| matches!(c, Chain::Celo)));
+        assert!(result.iter().any(|(c, _)| matches!(c, Chain::Gnosis)));
+        // Verify all addresses are the same
+        for (_, addr) in &result {
+            assert_eq!(addr, address);
+        }
     }
 
     #[test]
@@ -73,10 +107,14 @@ mod tests {
             hex::decode("0279be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798")
                 .unwrap();
         let result = derive_evm_address(&compressed).unwrap();
-        assert!(result.is_some());
-        let address = result.unwrap();
+        assert_eq!(result.len(), 10);
+        let address = &result[0].1;
         assert!(address.starts_with("0x"));
         assert_eq!(address.len(), 42);
+        // Verify all addresses are the same
+        for (_, addr) in &result {
+            assert_eq!(addr, address);
+        }
     }
 
     #[test]
@@ -84,7 +122,7 @@ mod tests {
         // Test with invalid length (not 33 or 65 bytes)
         let key_bytes = vec![0u8; 32];
         let result = derive_evm_address(&key_bytes).unwrap();
-        assert!(result.is_none());
+        assert!(result.is_empty());
     }
 
     #[test]
@@ -105,6 +143,6 @@ mod tests {
         let mut key_bytes = vec![0x05]; // Wrong prefix
         key_bytes.extend(vec![0u8; 64]);
         let result = derive_evm_address(&key_bytes).unwrap();
-        assert!(result.is_none());
+        assert!(result.is_empty());
     }
 }
