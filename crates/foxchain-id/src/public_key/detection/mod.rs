@@ -24,7 +24,6 @@ pub enum PublicKeyType {
     /// Ed25519 public key (used by Solana, Cosmos)
     Ed25519,
     /// sr25519 public key (used by Substrate)
-    #[allow(dead_code)]
     Sr25519,
     /// Unknown public key type
     #[allow(dead_code)]

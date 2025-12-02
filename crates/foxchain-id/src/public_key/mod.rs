@@ -129,9 +129,12 @@ pub fn detect_public_key(input: &str) -> Result<Option<IdentificationResult>, Er
                 });
             }
 
-            // Substrate address derivation - returns all 3 Substrate chains
-            let substrate_addresses = derive_substrate_address(&key_bytes, PublicKeyType::Ed25519)?;
-            for (chain, _address) in substrate_addresses {
+            // Substrate address derivation as Ed25519 - returns all 3 Substrate chains
+            // Since 32-byte keys could be either Ed25519 or sr25519 (indistinguishable),
+            // we derive addresses for both to give users all possible candidates
+            let substrate_addresses_ed25519 =
+                derive_substrate_address(&key_bytes, PublicKeyType::Ed25519)?;
+            for (chain, _address) in substrate_addresses_ed25519 {
                 let confidence = if matches!(chain, Chain::Polkadot) {
                     0.85
                 } else if matches!(chain, Chain::Kusama) {
@@ -144,6 +147,33 @@ pub fn detect_public_key(input: &str) -> Result<Option<IdentificationResult>, Er
                     confidence,
                     reasoning: format!(
                         "Substrate address derived from {} Ed25519 public key",
+                        match format {
+                            PublicKeyFormat::Hex => "hex",
+                            PublicKeyFormat::Base58 => "base58",
+                            PublicKeyFormat::Bech32 => "bech32",
+                        }
+                    ),
+                });
+            }
+
+            // ALSO derive Substrate addresses as sr25519 (since we can't distinguish)
+            // This gives users all possible candidates with appropriate confidence scores
+            // sr25519 has higher confidence for Substrate chains since it's primarily used there
+            let substrate_addresses_sr25519 =
+                derive_substrate_address(&key_bytes, PublicKeyType::Sr25519)?;
+            for (chain, _address) in substrate_addresses_sr25519 {
+                let confidence = if matches!(chain, Chain::Polkadot) {
+                    0.90
+                } else if matches!(chain, Chain::Kusama) {
+                    0.85
+                } else {
+                    0.80
+                };
+                candidates.push(ChainCandidate {
+                    chain,
+                    confidence,
+                    reasoning: format!(
+                        "Substrate address derived from {} sr25519 public key (indistinguishable from Ed25519)",
                         match format {
                             PublicKeyFormat::Hex => "hex",
                             PublicKeyFormat::Base58 => "base58",
@@ -462,12 +492,13 @@ mod tests {
     #[test]
     fn test_detect_public_key_hex_ed25519_with_substrate() {
         // Test Ed25519 key that should derive Substrate addresses
+        // Since we can't distinguish Ed25519 from sr25519, we should get candidates for both
         let key_hex = "0x79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798";
         let result = detect_public_key(key_hex).unwrap();
         assert!(result.is_some());
         let id_result = result.unwrap();
 
-        // Should have Substrate chains
+        // Should have Substrate chains from both Ed25519 and sr25519 (6 total: 3 + 3)
         let substrate_chains: Vec<_> = id_result
             .candidates
             .iter()
@@ -475,8 +506,60 @@ mod tests {
             .collect();
         assert_eq!(
             substrate_chains.len(),
+            6,
+            "Should have all 3 Substrate chains from both Ed25519 and sr25519 (6 total)"
+        );
+
+        // Verify we have both Ed25519 and sr25519 reasoning
+        // Filter by reasoning text to distinguish between Ed25519 and sr25519 candidates
+        let ed25519_reasoning: Vec<_> = id_result
+            .candidates
+            .iter()
+            .filter(|c| {
+                matches!(c.chain, Chain::Polkadot | Chain::Kusama | Chain::Substrate)
+                    && c.reasoning.contains("Ed25519")
+                    && !c.reasoning.contains("sr25519")
+            })
+            .collect();
+        assert_eq!(
+            ed25519_reasoning.len(),
             3,
-            "Should have all 3 Substrate chains"
+            "Should have 3 Ed25519 Substrate candidates"
+        );
+
+        let sr25519_reasoning: Vec<_> = id_result
+            .candidates
+            .iter()
+            .filter(|c| {
+                matches!(c.chain, Chain::Polkadot | Chain::Kusama | Chain::Substrate)
+                    && c.reasoning.contains("sr25519")
+            })
+            .collect();
+        assert_eq!(
+            sr25519_reasoning.len(),
+            3,
+            "Should have 3 sr25519 Substrate candidates"
+        );
+
+        // Verify sr25519 has higher confidence for Polkadot
+        let polkadot_sr25519 = id_result
+            .candidates
+            .iter()
+            .find(|c| matches!(c.chain, Chain::Polkadot) && c.reasoning.contains("sr25519"))
+            .unwrap();
+        assert_eq!(
+            polkadot_sr25519.confidence, 0.90,
+            "sr25519 Polkadot should have 0.90 confidence"
+        );
+
+        let polkadot_ed25519 = id_result
+            .candidates
+            .iter()
+            .find(|c| matches!(c.chain, Chain::Polkadot) && c.reasoning.contains("Ed25519"))
+            .unwrap();
+        assert_eq!(
+            polkadot_ed25519.confidence, 0.85,
+            "Ed25519 Polkadot should have 0.85 confidence"
         );
     }
 
