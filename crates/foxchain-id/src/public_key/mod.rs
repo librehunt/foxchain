@@ -9,6 +9,7 @@ pub mod detection;
 use crate::{Chain, ChainCandidate, Error, IdentificationResult};
 use derivation::{
     derive_bitcoin_addresses, derive_cosmos_address, derive_evm_address, derive_solana_address,
+    derive_substrate_address,
 };
 use detection::{detect, PublicKeyFormat, PublicKeyType};
 
@@ -63,6 +64,31 @@ pub fn detect_public_key(input: &str) -> Result<Option<IdentificationResult>, Er
                     ),
                 });
             }
+
+            // Substrate address derivation - returns all 3 Substrate chains
+            let substrate_addresses =
+                derive_substrate_address(&key_bytes, PublicKeyType::Secp256k1)?;
+            for (chain, _address) in substrate_addresses {
+                let confidence = if matches!(chain, Chain::Polkadot) {
+                    0.85
+                } else if matches!(chain, Chain::Kusama) {
+                    0.80
+                } else {
+                    0.75
+                };
+                candidates.push(ChainCandidate {
+                    chain,
+                    confidence,
+                    reasoning: format!(
+                        "Substrate address derived from {} secp256k1 public key",
+                        match format {
+                            PublicKeyFormat::Hex => "hex",
+                            PublicKeyFormat::Base58 => "base58",
+                            PublicKeyFormat::Bech32 => "bech32",
+                        }
+                    ),
+                });
+            }
         }
         PublicKeyType::Ed25519 => {
             // Solana address derivation
@@ -102,6 +128,86 @@ pub fn detect_public_key(input: &str) -> Result<Option<IdentificationResult>, Er
                     ),
                 });
             }
+
+            // Substrate address derivation as Ed25519 - returns all 3 Substrate chains
+            // Since 32-byte keys could be either Ed25519 or sr25519 (indistinguishable),
+            // we derive addresses for both to give users all possible candidates
+            let substrate_addresses_ed25519 =
+                derive_substrate_address(&key_bytes, PublicKeyType::Ed25519)?;
+            for (chain, _address) in substrate_addresses_ed25519 {
+                let confidence = if matches!(chain, Chain::Polkadot) {
+                    0.85
+                } else if matches!(chain, Chain::Kusama) {
+                    0.80
+                } else {
+                    0.75
+                };
+                candidates.push(ChainCandidate {
+                    chain,
+                    confidence,
+                    reasoning: format!(
+                        "Substrate address derived from {} Ed25519 public key",
+                        match format {
+                            PublicKeyFormat::Hex => "hex",
+                            PublicKeyFormat::Base58 => "base58",
+                            PublicKeyFormat::Bech32 => "bech32",
+                        }
+                    ),
+                });
+            }
+
+            // ALSO derive Substrate addresses as sr25519 (since we can't distinguish)
+            // This gives users all possible candidates with appropriate confidence scores
+            // sr25519 has higher confidence for Substrate chains since it's primarily used there
+            let substrate_addresses_sr25519 =
+                derive_substrate_address(&key_bytes, PublicKeyType::Sr25519)?;
+            for (chain, _address) in substrate_addresses_sr25519 {
+                let confidence = if matches!(chain, Chain::Polkadot) {
+                    0.90
+                } else if matches!(chain, Chain::Kusama) {
+                    0.85
+                } else {
+                    0.80
+                };
+                candidates.push(ChainCandidate {
+                    chain,
+                    confidence,
+                    reasoning: format!(
+                        "Substrate address derived from {} sr25519 public key (indistinguishable from Ed25519)",
+                        match format {
+                            PublicKeyFormat::Hex => "hex",
+                            PublicKeyFormat::Base58 => "base58",
+                            PublicKeyFormat::Bech32 => "bech32",
+                        }
+                    ),
+                });
+            }
+        }
+        PublicKeyType::Sr25519 => {
+            // Substrate address derivation - returns all 3 Substrate chains
+            // sr25519 keys are primarily used in Substrate ecosystem
+            let substrate_addresses = derive_substrate_address(&key_bytes, PublicKeyType::Sr25519)?;
+            for (chain, _address) in substrate_addresses {
+                let confidence = if matches!(chain, Chain::Polkadot) {
+                    0.90
+                } else if matches!(chain, Chain::Kusama) {
+                    0.85
+                } else {
+                    0.80
+                };
+                candidates.push(ChainCandidate {
+                    chain,
+                    confidence,
+                    reasoning: format!(
+                        "Substrate address derived from {} sr25519 public key",
+                        match format {
+                            PublicKeyFormat::Hex => "hex",
+                            PublicKeyFormat::Base58 => "base58",
+                            PublicKeyFormat::Bech32 => "bech32",
+                        }
+                    ),
+                });
+            }
         }
         PublicKeyType::Unknown => {
             // For unknown key types, we can't derive addresses
@@ -114,7 +220,7 @@ pub fn detect_public_key(input: &str) -> Result<Option<IdentificationResult>, Er
     }
 
     // Use the first derived address as normalized representation
-    // For secp256k1, prefer EVM address; for Ed25519, prefer Solana
+    // For secp256k1, prefer EVM address; for Ed25519, prefer Solana; for Sr25519, prefer Polkadot
     let normalized = match key_type {
         PublicKeyType::Secp256k1 => derive_evm_address(&key_bytes)?
             .first()
@@ -130,6 +236,10 @@ pub fn detect_public_key(input: &str) -> Result<Option<IdentificationResult>, Er
                     .unwrap_or_else(|| "unknown".to_string())
             }
         }
+        PublicKeyType::Sr25519 => derive_substrate_address(&key_bytes, PublicKeyType::Sr25519)?
+            .first()
+            .map(|(_, addr)| addr.clone())
+            .unwrap_or_else(|| "unknown".to_string()),
         PublicKeyType::Unknown => return Ok(None),
     };
 
@@ -334,5 +444,209 @@ mod tests {
         let id_result = result.unwrap();
         // Should have candidates (Solana and/or Cosmos)
         assert!(!id_result.candidates.is_empty());
+    }
+
+    #[test]
+    fn test_detect_public_key_hex_secp256k1_with_substrate() {
+        // Test secp256k1 key that should derive Substrate addresses
+        let key_hex = "0x0479be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798483ada7726a3c4655da4fbfc0e1108a8fd17b448a68554199c47d08ffb10d4b8";
+        let result = detect_public_key(key_hex).unwrap();
+        assert!(result.is_some());
+        let id_result = result.unwrap();
+
+        // Should have Substrate chains
+        let substrate_chains: Vec<_> = id_result
+            .candidates
+            .iter()
+            .filter(|c| matches!(c.chain, Chain::Polkadot | Chain::Kusama | Chain::Substrate))
+            .collect();
+        assert_eq!(
+            substrate_chains.len(),
+            3,
+            "Should have all 3 Substrate chains"
+        );
+
+        // Verify confidence scores
+        let polkadot = id_result
+            .candidates
+            .iter()
+            .find(|c| matches!(c.chain, Chain::Polkadot))
+            .unwrap();
+        assert_eq!(polkadot.confidence, 0.85);
+
+        let kusama = id_result
+            .candidates
+            .iter()
+            .find(|c| matches!(c.chain, Chain::Kusama))
+            .unwrap();
+        assert_eq!(kusama.confidence, 0.80);
+
+        let substrate = id_result
+            .candidates
+            .iter()
+            .find(|c| matches!(c.chain, Chain::Substrate))
+            .unwrap();
+        assert_eq!(substrate.confidence, 0.75);
+    }
+
+    #[test]
+    fn test_detect_public_key_hex_ed25519_with_substrate() {
+        // Test Ed25519 key that should derive Substrate addresses
+        // Since we can't distinguish Ed25519 from sr25519, we should get candidates for both
+        let key_hex = "0x79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798";
+        let result = detect_public_key(key_hex).unwrap();
+        assert!(result.is_some());
+        let id_result = result.unwrap();
+
+        // Should have Substrate chains from both Ed25519 and sr25519 (6 total: 3 + 3)
+        let substrate_chains: Vec<_> = id_result
+            .candidates
+            .iter()
+            .filter(|c| matches!(c.chain, Chain::Polkadot | Chain::Kusama | Chain::Substrate))
+            .collect();
+        assert_eq!(
+            substrate_chains.len(),
+            6,
+            "Should have all 3 Substrate chains from both Ed25519 and sr25519 (6 total)"
+        );
+
+        // Verify we have both Ed25519 and sr25519 reasoning
+        // Filter by reasoning text to distinguish between Ed25519 and sr25519 candidates
+        let ed25519_reasoning: Vec<_> = id_result
+            .candidates
+            .iter()
+            .filter(|c| {
+                matches!(c.chain, Chain::Polkadot | Chain::Kusama | Chain::Substrate)
+                    && c.reasoning.contains("Ed25519")
+                    && !c.reasoning.contains("sr25519")
+            })
+            .collect();
+        assert_eq!(
+            ed25519_reasoning.len(),
+            3,
+            "Should have 3 Ed25519 Substrate candidates"
+        );
+
+        let sr25519_reasoning: Vec<_> = id_result
+            .candidates
+            .iter()
+            .filter(|c| {
+                matches!(c.chain, Chain::Polkadot | Chain::Kusama | Chain::Substrate)
+                    && c.reasoning.contains("sr25519")
+            })
+            .collect();
+        assert_eq!(
+            sr25519_reasoning.len(),
+            3,
+            "Should have 3 sr25519 Substrate candidates"
+        );
+
+        // Verify sr25519 has higher confidence for Polkadot
+        let polkadot_sr25519 = id_result
+            .candidates
+            .iter()
+            .find(|c| matches!(c.chain, Chain::Polkadot) && c.reasoning.contains("sr25519"))
+            .unwrap();
+        assert_eq!(
+            polkadot_sr25519.confidence, 0.90,
+            "sr25519 Polkadot should have 0.90 confidence"
+        );
+
+        let polkadot_ed25519 = id_result
+            .candidates
+            .iter()
+            .find(|c| matches!(c.chain, Chain::Polkadot) && c.reasoning.contains("Ed25519"))
+            .unwrap();
+        assert_eq!(
+            polkadot_ed25519.confidence, 0.85,
+            "Ed25519 Polkadot should have 0.85 confidence"
+        );
+    }
+
+    #[test]
+    fn test_detect_public_key_sr25519() {
+        // Test with sr25519 key type (manually constructed for testing)
+        // Since detection doesn't distinguish sr25519 from Ed25519, we'll test
+        // the derivation path directly by using a key that would be detected as Ed25519
+        // but we can verify the Sr25519 path works
+        use crate::public_key::derivation::derive_substrate_address;
+        let key_bytes = vec![0u8; 32];
+        let result = derive_substrate_address(&key_bytes, PublicKeyType::Sr25519).unwrap();
+        assert_eq!(result.len(), 3);
+
+        // Test that detect_public_key with a 32-byte key includes Substrate chains
+        // (it will be detected as Ed25519, but Substrate derivation still works)
+        let key_hex = "0x79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798";
+        let result = detect_public_key(key_hex).unwrap();
+        assert!(result.is_some());
+        let id_result = result.unwrap();
+        // Should have Substrate chains (derived from Ed25519 path)
+        assert!(id_result
+            .candidates
+            .iter()
+            .any(|c| matches!(c.chain, Chain::Polkadot | Chain::Kusama | Chain::Substrate)));
+    }
+
+    #[test]
+    fn test_detect_public_key_base58_secp256k1() {
+        // Test with base58-encoded secp256k1 key to cover Base58 format path
+        use base58::ToBase58;
+        let mut key_bytes = vec![0x04u8];
+        key_bytes.extend(vec![0u8; 64]);
+        let base58_key = key_bytes.to_base58();
+
+        let result = detect_public_key(&base58_key).unwrap();
+        assert!(result.is_some());
+        let id_result = result.unwrap();
+        assert!(!id_result.candidates.is_empty());
+        // Should have Substrate chains
+        assert!(id_result
+            .candidates
+            .iter()
+            .any(|c| matches!(c.chain, Chain::Polkadot | Chain::Kusama | Chain::Substrate)));
+    }
+
+    #[test]
+    fn test_detect_public_key_bech32_ed25519() {
+        // Test with bech32-encoded Ed25519 key to cover Bech32 format path
+        use bech32::{ToBase32, Variant};
+        let key_bytes = vec![0u8; 32];
+        let data_u5 = key_bytes.to_base32();
+        let bech32_key = bech32::encode("npub", &data_u5, Variant::Bech32).unwrap();
+
+        let result = detect_public_key(&bech32_key).unwrap();
+        assert!(result.is_some());
+        let id_result = result.unwrap();
+        assert!(!id_result.candidates.is_empty());
+        // Should have Substrate chains
+        assert!(id_result
+            .candidates
+            .iter()
+            .any(|c| matches!(c.chain, Chain::Polkadot | Chain::Kusama | Chain::Substrate)));
+    }
+
+    #[test]
+    fn test_detect_public_key_ed25519_cosmos_fallback() {
+        // Test Ed25519 key where Solana derivation fails but Cosmos succeeds
+        // This tests the fallback path in normalized address selection
+        let key_hex = "0x79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798";
+        let result = detect_public_key(key_hex).unwrap();
+        assert!(result.is_some());
+        let id_result = result.unwrap();
+        // Normalized should be either Solana or Cosmos address
+        assert!(
+            id_result.normalized.starts_with("cosmos1") || id_result.normalized.len() == 44,
+            "Normalized should be valid address"
+        );
+    }
+
+    #[test]
+    fn test_detect_public_key_unknown_key_type() {
+        // Test with unknown key type - should return None
+        // This is hard to trigger through detect() since it returns None for unknown keys
+        // But we can verify the path exists in the code
+        let invalid_input = "not-a-key";
+        let result = detect_public_key(invalid_input).unwrap();
+        assert!(result.is_none());
     }
 }

@@ -1,12 +1,54 @@
 //! SS58 encoding utilities
 
-use base58::FromBase58;
+use base58::{FromBase58, ToBase58};
+
+use crate::shared::checksum::ss58 as ss58_checksum;
 
 /// Decode SS58 string to bytes
 pub fn decode(input: &str) -> Result<Vec<u8>, String> {
     input
         .from_base58()
         .map_err(|_| "Invalid SS58 encoding".to_string())
+}
+
+/// Encode account ID as SS58 address with given prefix
+///
+/// # Arguments
+/// * `prefix` - SS58 prefix (0 for Polkadot, 2 for Kusama, 42 for Generic Substrate)
+/// * `account_id` - 32-byte account ID
+///
+/// # Returns
+/// SS58-encoded address string
+pub fn encode(prefix: u16, account_id: &[u8]) -> Result<String, String> {
+    if account_id.len() != 32 {
+        return Err("Account ID must be 32 bytes".to_string());
+    }
+
+    // Encode prefix bytes
+    let prefix_bytes = if prefix < 64 {
+        // Single-byte prefix (0-63)
+        vec![prefix as u8]
+    } else if prefix < 16384 {
+        // Two-byte prefix (64-16383)
+        // Format: first_byte = 0x40 + (prefix >> 8) & 0x3f, second_byte = prefix & 0xff
+        let first_byte = 0x40u8 + ((prefix >> 8) & 0x3f) as u8;
+        let second_byte = (prefix & 0xff) as u8;
+        vec![first_byte, second_byte]
+    } else {
+        return Err("Prefix must be less than 16384".to_string());
+    };
+
+    // Calculate checksum (2 bytes for standard addresses)
+    let checksum = ss58_checksum::calculate(&prefix_bytes, account_id, 2);
+
+    // Combine: prefix + account_id + checksum
+    let mut payload = Vec::new();
+    payload.extend_from_slice(&prefix_bytes);
+    payload.extend_from_slice(account_id);
+    payload.extend_from_slice(&checksum);
+
+    // Encode as Base58
+    Ok(payload.to_base58())
 }
 
 #[cfg(test)]
@@ -37,5 +79,69 @@ mod tests {
         assert!(result.is_ok());
         let bytes = result.unwrap();
         assert_eq!(bytes.len(), 0);
+    }
+
+    #[test]
+    fn test_encode_single_byte_prefix() {
+        // Test encoding with single-byte prefix (Polkadot, prefix 0)
+        let account_id = vec![0u8; 32];
+        let result = encode(0, &account_id);
+        assert!(result.is_ok());
+        let address = result.unwrap();
+        assert!(!address.is_empty());
+        // Should be valid Base58
+        assert!(address
+            .chars()
+            .all(|c| "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz".contains(c)));
+    }
+
+    #[test]
+    fn test_encode_two_byte_prefix() {
+        // Test encoding with two-byte prefix (e.g., prefix 100)
+        let account_id = vec![0u8; 32];
+        let result = encode(100, &account_id);
+        assert!(result.is_ok());
+        let address = result.unwrap();
+        assert!(!address.is_empty());
+    }
+
+    #[test]
+    fn test_encode_invalid_account_id_length() {
+        // Test encoding with invalid account ID length
+        let account_id = vec![0u8; 31]; // Too short
+        let result = encode(0, &account_id);
+        assert!(result.is_err());
+        assert!(result.unwrap_err().contains("Account ID must be 32 bytes"));
+    }
+
+    #[test]
+    fn test_encode_prefix_too_large() {
+        // Test encoding with prefix >= 16384
+        let account_id = vec![0u8; 32];
+        let result = encode(16384, &account_id);
+        assert!(result.is_err());
+        assert!(result
+            .unwrap_err()
+            .contains("Prefix must be less than 16384"));
+    }
+
+    #[test]
+    fn test_encode_kusama_prefix() {
+        // Test encoding with Kusama prefix (2)
+        let account_id = vec![0u8; 32];
+        let result = encode(2, &account_id);
+        assert!(result.is_ok());
+        let address = result.unwrap();
+        assert!(!address.is_empty());
+    }
+
+    #[test]
+    fn test_encode_substrate_prefix() {
+        // Test encoding with Generic Substrate prefix (42)
+        let account_id = vec![0u8; 32];
+        let result = encode(42, &account_id);
+        assert!(result.is_ok());
+        let address = result.unwrap();
+        assert!(!address.is_empty());
     }
 }

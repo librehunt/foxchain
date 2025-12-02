@@ -1,7 +1,8 @@
 //! Hash functions (SHA256, Keccak, RIPEMD160, Blake2b)
 
+use blake2::{Blake2b512, Digest as Blake2Digest};
 use ripemd::Ripemd160;
-use sha2::{Digest, Sha256};
+use sha2::Sha256;
 use tiny_keccak::{Hasher, Keccak};
 
 /// Compute SHA256 hash
@@ -27,6 +28,15 @@ pub fn keccak256(data: &[u8]) -> [u8; 32] {
 pub fn hash160(data: &[u8]) -> [u8; 20] {
     let sha256_hash = sha256(data);
     Ripemd160::digest(sha256_hash).into()
+}
+
+/// Compute Blake2b-512 hash and return first 32 bytes
+/// Used for Substrate secp256k1 account ID derivation
+pub fn blake2b_256(data: &[u8]) -> [u8; 32] {
+    let hash = Blake2b512::digest(data);
+    let mut result = [0u8; 32];
+    result.copy_from_slice(&hash[..32]);
+    result
 }
 
 #[cfg(test)]
@@ -125,5 +135,31 @@ mod tests {
         let data = b"";
         let hash = keccak256(data);
         assert_eq!(hash.len(), 32);
+    }
+
+    #[test]
+    fn test_blake2b_256() {
+        let data = b"hello world";
+        let hash = blake2b_256(data);
+        assert_eq!(hash.len(), 32);
+        // Verify it's deterministic
+        let hash2 = blake2b_256(data);
+        assert_eq!(hash, hash2);
+    }
+
+    #[test]
+    fn test_blake2b_256_empty() {
+        let data = b"";
+        let hash = blake2b_256(data);
+        assert_eq!(hash.len(), 32);
+    }
+
+    #[test]
+    fn test_blake2b_256_different_from_sha256() {
+        let data = b"test";
+        let blake2b_hash = blake2b_256(data);
+        let sha256_hash = sha256(data);
+        // Blake2b and SHA256 should produce different hashes
+        assert_ne!(blake2b_hash, sha256_hash);
     }
 }
