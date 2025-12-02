@@ -4,13 +4,11 @@
 //! entire detection pipeline. All format detection logic is declarative,
 //! eliminating the need for hardcoded heuristics.
 
-use crate::Chain;
-
 /// Metadata for a blockchain chain
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ChainMetadata {
     /// Chain identifier
-    pub id: Chain,
+    pub id: crate::Chain,
     /// Human-readable chain name
     pub name: String,
     /// All supported address formats for this chain

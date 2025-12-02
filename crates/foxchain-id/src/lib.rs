@@ -3,7 +3,6 @@
 //! This crate provides functionality to identify which blockchain(s) an input
 //! string (address, public key, or private key) belongs to.
 
-mod address;
 mod detectors;
 mod formats;
 mod identify;
