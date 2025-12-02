@@ -81,11 +81,17 @@ pub fn detect_public_key(input: &str) -> Result<Option<IdentificationResult>, Er
                 });
             }
 
-            // Cosmos address derivation
-            if derive_cosmos_address(&key_bytes)?.is_some() {
+            // Cosmos address derivation - returns all 10 Cosmos chains
+            let cosmos_addresses = derive_cosmos_address(&key_bytes)?;
+            for (chain, _address) in cosmos_addresses {
+                let confidence = if matches!(chain, Chain::CosmosHub) {
+                    0.85
+                } else {
+                    0.80
+                };
                 candidates.push(ChainCandidate {
-                    chain: Chain::CosmosHub,
-                    confidence: 0.80,
+                    chain,
+                    confidence,
                     reasoning: format!(
                         "Cosmos address derived from {} Ed25519 public key",
                         match format {
@@ -118,7 +124,10 @@ pub fn detect_public_key(input: &str) -> Result<Option<IdentificationResult>, Er
             if let Some(addr) = derive_solana_address(&key_bytes) {
                 addr
             } else {
-                derive_cosmos_address(&key_bytes)?.unwrap_or_else(|| "unknown".to_string())
+                derive_cosmos_address(&key_bytes)?
+                    .first()
+                    .map(|(_, addr)| addr.clone())
+                    .unwrap_or_else(|| "unknown".to_string())
             }
         }
         PublicKeyType::Unknown => return Ok(None),
@@ -209,11 +218,48 @@ mod tests {
         assert!(result.is_some());
         let id_result = result.unwrap();
         assert!(!id_result.candidates.is_empty());
-        // Should have Solana and Cosmos candidates
+        // Should have Solana and all 10 Cosmos ecosystem chains
         assert!(id_result
             .candidates
             .iter()
-            .any(|c| matches!(c.chain, Chain::Solana | Chain::CosmosHub)));
+            .any(|c| matches!(c.chain, Chain::Solana)));
+
+        // Verify all 10 Cosmos chains are present
+        let cosmos_chains: Vec<_> = id_result
+            .candidates
+            .iter()
+            .filter(|c| {
+                matches!(
+                    c.chain,
+                    Chain::CosmosHub
+                        | Chain::Osmosis
+                        | Chain::Juno
+                        | Chain::Akash
+                        | Chain::Stargaze
+                        | Chain::SecretNetwork
+                        | Chain::Terra
+                        | Chain::Kava
+                        | Chain::Regen
+                        | Chain::Sentinel
+                )
+            })
+            .collect();
+        assert_eq!(cosmos_chains.len(), 10, "Should have all 10 Cosmos chains");
+
+        // Verify CosmosHub has highest confidence (0.85)
+        let cosmos_hub = id_result
+            .candidates
+            .iter()
+            .find(|c| matches!(c.chain, Chain::CosmosHub))
+            .unwrap();
+        assert_eq!(cosmos_hub.confidence, 0.85);
+
+        // Verify other Cosmos chains have 0.80 confidence
+        for candidate in cosmos_chains.iter() {
+            if !matches!(candidate.chain, Chain::CosmosHub) {
+                assert_eq!(candidate.confidence, 0.80);
+            }
+        }
     }
 
     #[test]
