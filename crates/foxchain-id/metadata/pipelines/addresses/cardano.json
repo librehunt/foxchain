@@ -1,0 +1,10 @@
+{
+  "id": "cardano",
+  "curve": "ed25519",
+  "steps": [
+    { "type": "hash", "algorithm": "sha3_256", "input": "pubkey", "output": "hash" },
+    { "type": "slice", "input": "hash", "start": 0, "end": 28, "output": "payload" },
+    { "type": "encode", "format": "bech32", "input": "payload" }
+  ]
+}
+

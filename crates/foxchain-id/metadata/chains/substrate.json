@@ -1,0 +1,16 @@
+{
+  "id": "substrate",
+  "name": "Substrate",
+  "curve": "ed25519",
+  "address_pipeline": "ss58",
+  "requires_stake_key": false,
+  "address_params": {
+    "prefix": 42
+  },
+  "public_key_formats": [{
+    "encoding": "hex",
+    "exact_length": 64,
+    "prefixes": ["0x"]
+  }]
+}
+

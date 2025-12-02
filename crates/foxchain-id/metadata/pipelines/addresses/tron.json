@@ -1,0 +1,12 @@
+{
+  "id": "tron",
+  "curve": "secp256k1",
+  "steps": [
+    { "type": "extract_key_bytes", "output": "key_64" },
+    { "type": "hash", "algorithm": "keccak256", "input": "key_64", "output": "hash" },
+    { "type": "slice", "input": "hash", "start": 12, "end": 32, "output": "address_bytes" },
+    { "type": "prefix", "prefix_byte": "0x41", "input": "address_bytes", "output": "versioned" },
+    { "type": "encode", "format": "base58check", "input": "versioned" }
+  ]
+}
+

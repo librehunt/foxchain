@@ -1,0 +1,17 @@
+{
+  "id": "cardano",
+  "name": "Cardano",
+  "curve": "ed25519",
+  "address_pipeline": "cardano",
+  "requires_stake_key": true,
+  "address_params": {
+    "headers": [0, 16, 224, 240],
+    "hrps": ["addr", "addr_test", "stake", "stake_test"]
+  },
+  "public_key_formats": [{
+    "encoding": "hex",
+    "exact_length": 64,
+    "prefixes": ["0x"]
+  }]
+}
+

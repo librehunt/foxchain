@@ -1,0 +1,16 @@
+{
+  "id": "dogecoin",
+  "name": "Dogecoin",
+  "curve": "secp256k1",
+  "address_pipeline": "bitcoin_p2pkh",
+  "requires_stake_key": false,
+  "address_params": {
+    "version_byte": 30
+  },
+  "public_key_formats": [{
+    "encoding": "hex",
+    "length_range": [66, 130],
+    "prefixes": ["0x"]
+  }]
+}
+

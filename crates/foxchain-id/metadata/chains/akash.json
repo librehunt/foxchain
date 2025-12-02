@@ -1,0 +1,16 @@
+{
+  "id": "akash",
+  "name": "Akash",
+  "curve": "ed25519",
+  "address_pipeline": "cosmos",
+  "requires_stake_key": false,
+  "address_params": {
+    "hrp": "akash"
+  },
+  "public_key_formats": [{
+    "encoding": "hex",
+    "exact_length": 64,
+    "prefixes": ["0x"]
+  }]
+}
+

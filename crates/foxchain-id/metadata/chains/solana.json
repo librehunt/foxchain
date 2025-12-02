@@ -1,0 +1,14 @@
+{
+  "id": "solana",
+  "name": "Solana",
+  "curve": "ed25519",
+  "address_pipeline": "solana",
+  "requires_stake_key": false,
+  "address_params": {},
+  "public_key_formats": [{
+    "encoding": "base58",
+    "length_range": [32, 44],
+    "prefixes": []
+  }]
+}
+

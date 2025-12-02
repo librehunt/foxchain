@@ -1,0 +1,10 @@
+{
+  "id": "cosmos",
+  "curve": "ed25519",
+  "steps": [
+    { "type": "hash", "algorithm": "sha256", "input": "pubkey", "output": "hash" },
+    { "type": "slice", "input": "hash", "start": 0, "end": 20, "output": "address_bytes" },
+    { "type": "encode", "format": "bech32", "input": "address_bytes" }
+  ]
+}
+

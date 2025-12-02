@@ -1,0 +1,38 @@
+{
+  "curves": ["secp256k1", "ed25519", "sr25519"],
+  "pipelines": {
+    "addresses": ["evm", "bitcoin_p2pkh", "bitcoin_bech32", "cosmos", "solana", "ss58", "cardano", "tron"]
+  },
+  "chains": [
+    "ethereum",
+    "polygon",
+    "bsc",
+    "avalanche",
+    "arbitrum",
+    "optimism",
+    "base",
+    "fantom",
+    "celo",
+    "gnosis",
+    "bitcoin",
+    "litecoin",
+    "dogecoin",
+    "solana",
+    "tron",
+    "cosmos_hub",
+    "osmosis",
+    "juno",
+    "akash",
+    "stargaze",
+    "secret_network",
+    "terra",
+    "kava",
+    "regen",
+    "sentinel",
+    "polkadot",
+    "kusama",
+    "substrate",
+    "cardano"
+  ]
+}
+

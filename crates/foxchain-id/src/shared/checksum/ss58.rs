@@ -22,6 +22,7 @@ pub fn calculate(prefix: &[u8], account_id: &[u8], checksum_len: usize) -> Vec<u
 /// Validate SS58 checksum
 ///
 /// Returns true if checksum is valid
+#[allow(dead_code)] // Used in tests
 pub fn validate(prefix: &[u8], account_id: &[u8], checksum: &[u8]) -> bool {
     let expected_checksum = calculate(prefix, account_id, checksum.len());
     checksum == expected_checksum.as_slice()
