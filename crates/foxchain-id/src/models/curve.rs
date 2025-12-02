@@ -8,4 +8,3 @@ pub struct CurveMetadata {
     pub compression: bool,
     pub compatible_pipelines: Vec<String>,
 }
-

@@ -36,7 +36,5 @@ pub fn load_chain(id: &str) -> Result<ChainConfig, String> {
         "cardano" => include_str!("../../metadata/chains/cardano.json"),
         _ => return Err(format!("Unknown chain: {}", id)),
     };
-    serde_json::from_str(json)
-        .map_err(|e| format!("Failed to parse chain JSON for {}: {}", id, e))
+    serde_json::from_str(json).map_err(|e| format!("Failed to parse chain JSON for {}: {}", id, e))
 }
-

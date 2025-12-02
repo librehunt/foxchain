@@ -1,5 +1,5 @@
-use crate::Error;
 use crate::loaders::load_pipeline;
+use crate::Error;
 use serde_json::Value;
 
 /// Execute a pipeline by ID
@@ -8,9 +8,10 @@ pub fn execute_pipeline(
     pk_bytes: &[u8],
     params: &Value,
 ) -> Result<String, Error> {
-    let pipeline = load_pipeline(pipeline_id)
-        .map_err(|e| Error::InvalidInput(format!("Failed to load pipeline {}: {}", pipeline_id, e)))?;
-    
+    let pipeline = load_pipeline(pipeline_id).map_err(|e| {
+        Error::InvalidInput(format!("Failed to load pipeline {}: {}", pipeline_id, e))
+    })?;
+
     match pipeline.id.as_str() {
         "evm" => evm::execute_evm_pipeline(pk_bytes, params),
         "bitcoin_p2pkh" => bitcoin_p2pkh::execute_bitcoin_p2pkh_pipeline(pk_bytes, params),
@@ -20,12 +21,12 @@ pub fn execute_pipeline(
         "ss58" => ss58::execute_ss58_pipeline(pk_bytes, params),
         "cardano" => cardano::execute_cardano_pipeline(pk_bytes, params),
         "tron" => tron::execute_tron_pipeline(pk_bytes, params),
-        _ => Err(Error::InvalidInput(format!("Unknown pipeline: {}", pipeline_id))),
+        _ => Err(Error::InvalidInput(format!(
+            "Unknown pipeline: {}",
+            pipeline_id
+        ))),
     }
 }
 
 // Import pipeline executors
-use super::{
-    evm, bitcoin_p2pkh, bitcoin_bech32, cosmos, solana, ss58, cardano, tron,
-};
-
+use super::{bitcoin_bech32, bitcoin_p2pkh, cardano, cosmos, evm, solana, ss58, tron};

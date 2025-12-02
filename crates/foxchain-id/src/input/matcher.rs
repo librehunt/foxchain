@@ -6,8 +6,8 @@
 //! Uses functional programming style with iterator combinators for clean,
 //! idiomatic, and performant matching.
 
-use crate::input::{CategorySignature, InputCharacteristics, InputPossibility, DetectedKeyType};
-use crate::registry::{Registry, PublicKeyType};
+use crate::input::{CategorySignature, DetectedKeyType, InputCharacteristics, InputPossibility};
+use crate::registry::{PublicKeyType, Registry};
 
 /// A match between input and a chain
 #[derive(Debug, Clone)]
@@ -37,7 +37,9 @@ pub fn match_input_with_metadata(
     registry: &Registry,
 ) -> Vec<ChainMatch> {
     // Extract address and public key possibilities
-    let has_address = possibilities.iter().any(|p| matches!(p, InputPossibility::Address));
+    let has_address = possibilities
+        .iter()
+        .any(|p| matches!(p, InputPossibility::Address));
     let pk_types: Vec<DetectedKeyType> = possibilities
         .iter()
         .filter_map(|p| match p {
@@ -45,8 +47,10 @@ pub fn match_input_with_metadata(
             _ => None,
         })
         .collect();
-    
-    registry.chains.iter()
+
+    registry
+        .chains
+        .iter()
         .flat_map(|chain| {
             let addr_matches = address_matches(chain, input, chars, has_address);
             let pk_matches = public_key_matches(chain, &pk_types);
@@ -62,7 +66,9 @@ fn address_matches<'a>(
     chars: &'a InputCharacteristics,
     has_address: bool,
 ) -> impl Iterator<Item = ChainMatch> + 'a {
-    chain.address_formats.iter()
+    chain
+        .address_formats
+        .iter()
         .filter(move |meta| {
             let meta_sig = CategorySignature::from_metadata(meta);
             meta_sig.matches(chars)
@@ -82,9 +88,12 @@ fn public_key_matches<'a>(
     chain: &'a crate::registry::ChainMetadata,
     pk_types: &'a [DetectedKeyType],
 ) -> impl Iterator<Item = ChainMatch> + 'a {
-    chain.public_key_formats.iter()
+    chain
+        .public_key_formats
+        .iter()
         .flat_map(move |pk_fmt| {
-            pk_types.iter()
+            pk_types
+                .iter()
                 .filter(move |pk| {
                     let pk_curve = detected_key_to_curve(pk);
                     pk_fmt.key_type == pk_curve
@@ -119,19 +128,31 @@ mod tests {
         let chars = extract_characteristics(input);
         let possibilities = classify_input(input, &chars).unwrap();
         let registry = Registry::get();
-        
+
         let matches = match_input_with_metadata(input, &chars, &possibilities, registry);
-        
+
         // Verify function returns correct structure
         // If matches found, verify structure; if not, that's a detection issue, not a matcher issue
         if !matches.is_empty() {
             // All matches should be for addresses
-            assert!(matches.iter().all(|m| matches!(m.possibility, InputPossibility::Address)));
+            assert!(matches
+                .iter()
+                .all(|m| matches!(m.possibility, InputPossibility::Address)));
             // Should include Ethereum
             assert!(matches.iter().any(|m| m.chain_id == "ethereum"));
             // Should include other EVM chains
-            let evm_chains = ["ethereum", "polygon", "bsc", "avalanche", "arbitrum", "optimism", "base"];
-            assert!(matches.iter().any(|m| evm_chains.contains(&m.chain_id.as_str())));
+            let evm_chains = [
+                "ethereum",
+                "polygon",
+                "bsc",
+                "avalanche",
+                "arbitrum",
+                "optimism",
+                "base",
+            ];
+            assert!(matches
+                .iter()
+                .any(|m| evm_chains.contains(&m.chain_id.as_str())));
         }
         // Verify all matches have correct structure
         for m in &matches {
@@ -147,13 +168,15 @@ mod tests {
         let chars = extract_characteristics(input);
         let possibilities = classify_input(input, &chars).unwrap();
         let registry = Registry::get();
-        
+
         let matches = match_input_with_metadata(input, &chars, &possibilities, registry);
-        
+
         // Verify function returns correct structure
         if !matches.is_empty() {
             // All matches should be for addresses
-            assert!(matches.iter().all(|m| matches!(m.possibility, InputPossibility::Address)));
+            assert!(matches
+                .iter()
+                .all(|m| matches!(m.possibility, InputPossibility::Address)));
         }
         // Verify all matches have correct structure
         for m in &matches {
@@ -169,21 +192,22 @@ mod tests {
         let chars = extract_characteristics(input);
         let possibilities = classify_input(input, &chars).unwrap();
         let registry = Registry::get();
-        
+
         let matches = match_input_with_metadata(input, &chars, &possibilities, registry);
-        
+
         // Should match chains that support secp256k1
         assert!(!matches.is_empty());
         // Should have public key matches
-        let pk_matches: Vec<_> = matches.iter()
+        let pk_matches: Vec<_> = matches
+            .iter()
             .filter(|m| matches!(m.possibility, InputPossibility::PublicKey { .. }))
             .collect();
         assert!(!pk_matches.is_empty());
         // All PK matches should be secp256k1
         assert!(pk_matches.iter().all(|m| matches!(
             m.possibility,
-            InputPossibility::PublicKey { 
-                key_type: DetectedKeyType::Secp256k1 { .. } 
+            InputPossibility::PublicKey {
+                key_type: DetectedKeyType::Secp256k1 { .. }
             }
         )));
     }
@@ -195,14 +219,18 @@ mod tests {
         let chars = extract_characteristics(input);
         let possibilities = classify_input(input, &chars).unwrap();
         let registry = Registry::get();
-        
+
         let matches = match_input_with_metadata(input, &chars, &possibilities, registry);
-        
+
         // Should match chains that support Ed25519 (Solana, Cardano, etc.)
         assert!(!matches.is_empty());
         // Should have both address and public key matches (ambiguous input)
-        let has_address = matches.iter().any(|m| matches!(m.possibility, InputPossibility::Address));
-        let has_pk = matches.iter().any(|m| matches!(m.possibility, InputPossibility::PublicKey { .. }));
+        let has_address = matches
+            .iter()
+            .any(|m| matches!(m.possibility, InputPossibility::Address));
+        let has_pk = matches
+            .iter()
+            .any(|m| matches!(m.possibility, InputPossibility::PublicKey { .. }));
         // This input is ambiguous, so it could match as both
         assert!(has_address || has_pk);
     }
@@ -215,9 +243,9 @@ mod tests {
         // This should fail classification, but let's test with empty possibilities
         let possibilities = vec![];
         let registry = Registry::get();
-        
+
         let matches = match_input_with_metadata(input, &chars, &possibilities, registry);
-        
+
         // Should return no matches
         assert!(matches.is_empty());
     }
@@ -229,9 +257,9 @@ mod tests {
         let chars = extract_characteristics(input);
         let possibilities = classify_input(input, &chars).unwrap();
         let registry = Registry::get();
-        
+
         let matches = match_input_with_metadata(input, &chars, &possibilities, registry);
-        
+
         // Verify function returns correct structure
         // Verify all matches have correct structure
         for m in &matches {
@@ -241,12 +269,17 @@ mod tests {
         // If matches found, verify they're correct
         if !matches.is_empty() {
             // Should have address matches
-            assert!(matches.iter().any(|m| matches!(m.possibility, InputPossibility::Address)));
+            assert!(matches
+                .iter()
+                .any(|m| matches!(m.possibility, InputPossibility::Address)));
             // Should include Bitcoin (if matches found)
             if matches.iter().any(|m| m.chain_id == "bitcoin") {
                 // Verify Bitcoin match structure
                 let bitcoin_match = matches.iter().find(|m| m.chain_id == "bitcoin").unwrap();
-                assert!(matches!(bitcoin_match.possibility, InputPossibility::Address));
+                assert!(matches!(
+                    bitcoin_match.possibility,
+                    InputPossibility::Address
+                ));
             }
         }
     }
@@ -258,13 +291,15 @@ mod tests {
         let chars = extract_characteristics(input);
         let possibilities = classify_input(input, &chars).unwrap();
         let registry = Registry::get();
-        
+
         let matches = match_input_with_metadata(input, &chars, &possibilities, registry);
-        
+
         // Verify function returns correct structure
         if !matches.is_empty() {
             // Should have address matches
-            assert!(matches.iter().any(|m| matches!(m.possibility, InputPossibility::Address)));
+            assert!(matches
+                .iter()
+                .any(|m| matches!(m.possibility, InputPossibility::Address)));
             // Should include Bitcoin
             assert!(matches.iter().any(|m| m.chain_id == "bitcoin"));
         }
@@ -286,16 +321,31 @@ mod tests {
         let chars = extract_characteristics(input);
         let possibilities = classify_input(input, &chars).unwrap();
         let registry = Registry::get();
-        
+
         let matches = match_input_with_metadata(input, &chars, &possibilities, registry);
-        
+
         // Should match multiple EVM chains
-        let evm_chains = ["ethereum", "polygon", "bsc", "avalanche", "arbitrum", "optimism", "base", "fantom", "celo", "gnosis"];
+        let evm_chains = [
+            "ethereum",
+            "polygon",
+            "bsc",
+            "avalanche",
+            "arbitrum",
+            "optimism",
+            "base",
+            "fantom",
+            "celo",
+            "gnosis",
+        ];
         let matched_chains: Vec<_> = matches.iter().map(|m| m.chain_id.as_str()).collect();
-        assert!(evm_chains.iter().any(|&chain| matched_chains.contains(&chain)));
-        
+        assert!(evm_chains
+            .iter()
+            .any(|&chain| matched_chains.contains(&chain)));
+
         // All matches should be for addresses
-        assert!(matches.iter().all(|m| matches!(m.possibility, InputPossibility::Address)));
+        assert!(matches
+            .iter()
+            .all(|m| matches!(m.possibility, InputPossibility::Address)));
     }
 
     #[test]
@@ -305,15 +355,17 @@ mod tests {
         let chars = extract_characteristics(input);
         let possibilities = classify_input(input, &chars).unwrap();
         let registry = Registry::get();
-        
+
         let matches = match_input_with_metadata(input, &chars, &possibilities, registry);
-        
+
         // Should match Bitcoin
         if !matches.is_empty() {
             assert!(matches.iter().any(|m| m.chain_id == "bitcoin"));
             // Should NOT match EVM chains
             let evm_chains = ["ethereum", "polygon", "bsc"];
-            assert!(!matches.iter().any(|m| evm_chains.contains(&m.chain_id.as_str())));
+            assert!(!matches
+                .iter()
+                .any(|m| evm_chains.contains(&m.chain_id.as_str())));
         }
     }
 
@@ -324,9 +376,9 @@ mod tests {
         let chars = extract_characteristics(input);
         if let Ok(possibilities) = classify_input(input, &chars) {
             let registry = Registry::get();
-            
+
             let matches = match_input_with_metadata(input, &chars, &possibilities, registry);
-            
+
             // Should match Cosmos Hub (not other Cosmos chains with different HRPs)
             if !matches.is_empty() {
                 assert!(matches.iter().any(|m| m.chain_id == "cosmos_hub"));
@@ -344,19 +396,22 @@ mod tests {
         let chars = extract_characteristics(input);
         let possibilities = classify_input(input, &chars).unwrap();
         let registry = Registry::get();
-        
+
         let matches = match_input_with_metadata(input, &chars, &possibilities, registry);
-        
+
         // Should match secp256k1 chains (EVM, Bitcoin, Tron)
         if !matches.is_empty() {
-            let pk_matches: Vec<_> = matches.iter()
+            let pk_matches: Vec<_> = matches
+                .iter()
                 .filter(|m| matches!(m.possibility, InputPossibility::PublicKey { .. }))
                 .collect();
-            
+
             if !pk_matches.is_empty() {
                 // Should match EVM chains
                 let evm_chains = ["ethereum", "polygon", "bsc"];
-                assert!(pk_matches.iter().any(|m| evm_chains.contains(&m.chain_id.as_str())));
+                assert!(pk_matches
+                    .iter()
+                    .any(|m| evm_chains.contains(&m.chain_id.as_str())));
             }
         }
     }
@@ -368,19 +423,22 @@ mod tests {
         let chars = extract_characteristics(input);
         if let Ok(possibilities) = classify_input(input, &chars) {
             let registry = Registry::get();
-            
+
             let matches = match_input_with_metadata(input, &chars, &possibilities, registry);
-            
+
             // Should match Ed25519 chains (Solana, Cardano, Cosmos, Substrate)
             if !matches.is_empty() {
-                let pk_matches: Vec<_> = matches.iter()
+                let pk_matches: Vec<_> = matches
+                    .iter()
                     .filter(|m| matches!(m.possibility, InputPossibility::PublicKey { .. }))
                     .collect();
-                
+
                 if !pk_matches.is_empty() {
                     // Should match at least one Ed25519 chain
                     let ed25519_chains = ["solana", "cardano", "cosmos_hub", "polkadot"];
-                    assert!(pk_matches.iter().any(|m| ed25519_chains.contains(&m.chain_id.as_str())));
+                    assert!(pk_matches
+                        .iter()
+                        .any(|m| ed25519_chains.contains(&m.chain_id.as_str())));
                 }
             }
         }
@@ -395,11 +453,10 @@ mod tests {
         // Use empty possibilities (invalid input)
         let possibilities = vec![];
         let registry = Registry::get();
-        
+
         let matches = match_input_with_metadata(input, &chars, &possibilities, registry);
-        
+
         // Should return no matches
         assert!(matches.is_empty());
     }
 }
-

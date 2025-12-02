@@ -14,9 +14,7 @@ use crate::registry::EncodingType;
 pub fn decode_to_bytes(input: &str, encoding: Option<EncodingType>) -> Option<Vec<u8>> {
     match encoding {
         Some(EncodingType::Hex) => hex::decode(input).ok(),
-        Some(EncodingType::Base58) | Some(EncodingType::Base58Check) => {
-            base58::decode(input).ok()
-        }
+        Some(EncodingType::Base58) | Some(EncodingType::Base58Check) => base58::decode(input).ok(),
         Some(EncodingType::Bech32) | Some(EncodingType::Bech32m) => {
             let (_, data, _) = bech32::decode(input).ok()?;
             // Convert u5 to bytes

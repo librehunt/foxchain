@@ -43,15 +43,18 @@ pub enum DetectedKeyType {
 ///
 /// Returns Err if no possibilities are found (invalid input format).
 /// Uses functional programming style with iterator combinators.
-pub fn classify_input(input: &str, chars: &InputCharacteristics) -> Result<Vec<InputPossibility>, Error> {
+pub fn classify_input(
+    input: &str,
+    chars: &InputCharacteristics,
+) -> Result<Vec<InputPossibility>, Error> {
     let address_possibilities = could_be_address(input, chars)?;
     let public_key_possibilities = could_be_public_key(input, chars)?;
-    
+
     let possibilities: Vec<InputPossibility> = address_possibilities
         .into_iter()
         .chain(public_key_possibilities)
         .collect();
-    
+
     if possibilities.is_empty() {
         Err(Error::InvalidInput(format!(
             "Unable to classify input format: {}",
@@ -63,7 +66,7 @@ pub fn classify_input(input: &str, chars: &InputCharacteristics) -> Result<Vec<I
 }
 
 /// Check if input could be an address based on basic heuristics
-/// 
+///
 /// This is non-chain-aware and does not perform validation.
 /// It only checks basic structure: encoding type, length ranges, HRP presence.
 /// Actual validation happens in the metadata-driven detector stage.
@@ -71,24 +74,28 @@ pub fn classify_input(input: &str, chars: &InputCharacteristics) -> Result<Vec<I
 /// Returns Result with Vec<InputPossibility::Address>.
 /// Returns Ok with single-element vec if it could be an address, Ok with empty vec otherwise.
 /// Never returns Err (address classification is always successful, even if no match).
-fn could_be_address(_input: &str, chars: &InputCharacteristics) -> Result<Vec<InputPossibility>, Error> {
+fn could_be_address(
+    _input: &str,
+    chars: &InputCharacteristics,
+) -> Result<Vec<InputPossibility>, Error> {
     // Try all possible encodings - if any match, it could be an address
-    let could_be = chars.encoding.iter().any(|encoding| {
-        match encoding {
-            EncodingType::Hex =>
-                chars.length == 42 && chars.prefixes.iter().any(|p| p == "0x"),
-            EncodingType::Base58Check =>
-                (26..=34).contains(&chars.length) || (35..=48).contains(&chars.length),
-            EncodingType::Base58 =>
-                (32..=44).contains(&chars.length),
-            EncodingType::SS58 =>
-                (35..=48).contains(&chars.length),
-            EncodingType::Bech32 | EncodingType::Bech32m =>
-                chars.hrp.is_some() && (14..=90).contains(&chars.length),
+    let could_be = chars.encoding.iter().any(|encoding| match encoding {
+        EncodingType::Hex => chars.length == 42 && chars.prefixes.iter().any(|p| p == "0x"),
+        EncodingType::Base58Check => {
+            (26..=34).contains(&chars.length) || (35..=48).contains(&chars.length)
+        }
+        EncodingType::Base58 => (32..=44).contains(&chars.length),
+        EncodingType::SS58 => (35..=48).contains(&chars.length),
+        EncodingType::Bech32 | EncodingType::Bech32m => {
+            chars.hrp.is_some() && (14..=90).contains(&chars.length)
         }
     }) || (chars.encoding.is_empty() && chars.hrp.is_some());
-    
-    Ok(if could_be { vec![InputPossibility::Address] } else { vec![] })
+
+    Ok(if could_be {
+        vec![InputPossibility::Address]
+    } else {
+        vec![]
+    })
 }
 
 /// Check if input could be a public key based on heuristics
@@ -97,10 +104,13 @@ fn could_be_address(_input: &str, chars: &InputCharacteristics) -> Result<Vec<In
 /// An input might match multiple key types (e.g., 32-byte could be Ed25519 or sr25519).
 /// Returns Ok with empty vec if it could not be a public key.
 /// Never returns Err (public key classification is always successful, even if no match).
-fn could_be_public_key(input: &str, chars: &InputCharacteristics) -> Result<Vec<InputPossibility>, Error> {
+fn could_be_public_key(
+    input: &str,
+    chars: &InputCharacteristics,
+) -> Result<Vec<InputPossibility>, Error> {
     // Try all possible encodings to decode the input
     let mut bytes = None;
-    
+
     for encoding in &chars.encoding {
         let decoded = match encoding {
             EncodingType::Hex => {
@@ -110,13 +120,13 @@ fn could_be_public_key(input: &str, chars: &InputCharacteristics) -> Result<Vec<
             }
             _ => encoding::decode_to_bytes(input, Some(*encoding)),
         };
-        
+
         if let Some(decoded_bytes) = decoded {
             bytes = Some(decoded_bytes);
             break; // Use first successful decode
         }
     }
-    
+
     // Cannot be a PK if decoding fails
     let bytes = match bytes {
         Some(bytes) => bytes,
@@ -126,20 +136,22 @@ fn could_be_public_key(input: &str, chars: &InputCharacteristics) -> Result<Vec<
     // Pure pattern matching with guards - no nested if/else
     let possibilities = match bytes.len() {
         32 => vec![
-            InputPossibility::PublicKey { key_type: DetectedKeyType::Ed25519 },
-            InputPossibility::PublicKey { key_type: DetectedKeyType::Sr25519 },
+            InputPossibility::PublicKey {
+                key_type: DetectedKeyType::Ed25519,
+            },
+            InputPossibility::PublicKey {
+                key_type: DetectedKeyType::Sr25519,
+            },
         ],
-        33 if bytes[0] == 0x02 || bytes[0] == 0x03 =>
-            vec![InputPossibility::PublicKey { 
-                key_type: DetectedKeyType::Secp256k1 { compressed: true } 
-            }],
-        65 if bytes[0] == 0x04 =>
-            vec![InputPossibility::PublicKey { 
-                key_type: DetectedKeyType::Secp256k1 { compressed: false } 
-            }],
+        33 if bytes[0] == 0x02 || bytes[0] == 0x03 => vec![InputPossibility::PublicKey {
+            key_type: DetectedKeyType::Secp256k1 { compressed: true },
+        }],
+        65 if bytes[0] == 0x04 => vec![InputPossibility::PublicKey {
+            key_type: DetectedKeyType::Secp256k1 { compressed: false },
+        }],
         _ => Vec::new(),
     };
-    
+
     Ok(possibilities)
 }
 
@@ -224,10 +236,9 @@ mod tests {
         // Should be classified as address (hex encoding, 42 chars, 0x prefix)
         assert!(possibilities.contains(&InputPossibility::Address));
         // Should NOT be classified as public key (20 bytes, not 32/33/65)
-        assert!(!possibilities.iter().any(|p| matches!(
-            p,
-            InputPossibility::PublicKey { .. }
-        )));
+        assert!(!possibilities
+            .iter()
+            .any(|p| matches!(p, InputPossibility::PublicKey { .. })));
     }
 
     #[test]
@@ -240,10 +251,9 @@ mod tests {
         // Should be classified as address (hex encoding, 42 chars, 0x prefix)
         assert!(possibilities.contains(&InputPossibility::Address));
         // Should NOT be classified as public key (20 bytes, not 32/33/65)
-        assert!(!possibilities.iter().any(|p| matches!(
-            p,
-            InputPossibility::PublicKey { .. }
-        )));
+        assert!(!possibilities
+            .iter()
+            .any(|p| matches!(p, InputPossibility::PublicKey { .. })));
     }
 
     #[test]
@@ -268,10 +278,9 @@ mod tests {
         // Should be classified as address (Base58Check encoding)
         assert!(possibilities.contains(&InputPossibility::Address));
         // Should NOT be classified as public key (25 bytes when decoded, not 32/33/65)
-        assert!(!possibilities.iter().any(|p| matches!(
-            p,
-            InputPossibility::PublicKey { .. }
-        )));
+        assert!(!possibilities
+            .iter()
+            .any(|p| matches!(p, InputPossibility::PublicKey { .. })));
     }
 
     // ============================================================================
@@ -284,10 +293,12 @@ mod tests {
         let input = "0xd8da6bf26964af9d7eed9e03e53415d37aa96045";
         let chars = extract_characteristics(input);
         let possibilities = classify_input(input, &chars).unwrap();
-        
+
         // Should be classified as address only
         assert!(possibilities.contains(&InputPossibility::Address));
-        assert!(!possibilities.iter().any(|p| matches!(p, InputPossibility::PublicKey { .. })));
+        assert!(!possibilities
+            .iter()
+            .any(|p| matches!(p, InputPossibility::PublicKey { .. })));
     }
 
     #[test]
@@ -296,7 +307,7 @@ mod tests {
         let input = "1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa";
         let chars = extract_characteristics(input);
         let possibilities = classify_input(input, &chars).unwrap();
-        
+
         assert!(possibilities.contains(&InputPossibility::Address));
     }
 
@@ -317,7 +328,7 @@ mod tests {
         let input = "0x0279be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798";
         let chars = extract_characteristics(input);
         let possibilities = classify_input(input, &chars).unwrap();
-        
+
         // Should be classified as public key
         assert!(possibilities.iter().any(|p| matches!(
             p,
@@ -333,7 +344,7 @@ mod tests {
         let input = "0x0479be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798483ada7726a3c4655da4fbfc0e1108a8fd17b448a68554199c47d08ffb10d4b8";
         let chars = extract_characteristics(input);
         let possibilities = classify_input(input, &chars).unwrap();
-        
+
         // Should be classified as public key
         assert!(possibilities.iter().any(|p| matches!(
             p,
@@ -372,7 +383,7 @@ mod tests {
         let input = "9WzDXwBbmkg8ZTbNMqUxvQRAyrZzDsGYdLVL9zYtAWWM";
         let chars = extract_characteristics(input);
         let possibilities = classify_input(input, &chars).unwrap();
-        
+
         // Should return both possibilities
         assert!(possibilities.contains(&InputPossibility::Address));
         assert!(possibilities.iter().any(|p| matches!(
@@ -395,7 +406,7 @@ mod tests {
         let input = "xyz123abc";
         let chars = extract_characteristics(input);
         let result = classify_input(input, &chars);
-        
+
         assert!(result.is_err());
         if let Err(Error::InvalidInput(msg)) = result {
             assert!(msg.contains("Unable to classify input format"));
@@ -410,8 +421,7 @@ mod tests {
         let input = "";
         let chars = extract_characteristics(input);
         let result = classify_input(input, &chars);
-        
+
         assert!(result.is_err());
     }
 }
-

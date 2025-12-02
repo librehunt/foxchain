@@ -12,4 +12,3 @@ pub use metadata::{
     AddressMetadata, ChainMetadata, CharSet, ChecksumType, EncodingType, Network,
     PublicKeyMetadata, PublicKeyType,
 };
-

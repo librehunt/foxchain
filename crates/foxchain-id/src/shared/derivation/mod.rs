@@ -3,8 +3,8 @@
 //! This module provides utilities for decoding public keys from various encodings.
 //! Address derivation is now handled by the pipeline system.
 
-use crate::Error;
 use crate::input::DetectedKeyType;
+use crate::Error;
 
 /// Decode public key from input string based on encoding
 pub fn decode_public_key(
@@ -13,18 +13,18 @@ pub fn decode_public_key(
     key_type: DetectedKeyType,
 ) -> Result<Vec<u8>, Error> {
     use crate::shared::encoding::{base58, bech32 as bech32_encoding, hex};
-    
+
     // Try all possible encodings to decode the input
     let mut bytes = None;
     let mut last_error = None;
-    
+
     for encoding in &chars.encoding {
         let decoded = match encoding {
-            crate::registry::EncodingType::Hex => {
-                hex::decode(input).map_err(|e| Error::InvalidInput(format!("Hex decode error: {}", e)))
-            }
+            crate::registry::EncodingType::Hex => hex::decode(input)
+                .map_err(|e| Error::InvalidInput(format!("Hex decode error: {}", e))),
             crate::registry::EncodingType::Base58 | crate::registry::EncodingType::Base58Check => {
-                base58::decode(input).map_err(|e| Error::InvalidInput(format!("Base58 decode error: {}", e)))
+                base58::decode(input)
+                    .map_err(|e| Error::InvalidInput(format!("Base58 decode error: {}", e)))
             }
             crate::registry::EncodingType::Bech32 | crate::registry::EncodingType::Bech32m => {
                 let (_, data, _) = bech32_encoding::decode(input)
@@ -33,11 +33,10 @@ pub fn decode_public_key(
                 bech32_encoding::convert_bits(&u5_bytes, 5, 8, false)
                     .map_err(|e| Error::InvalidInput(format!("Bit conversion error: {}", e)))
             }
-            crate::registry::EncodingType::SS58 => {
-                base58::decode(input).map_err(|e| Error::InvalidInput(format!("Base58 decode error: {}", e)))
-            }
+            crate::registry::EncodingType::SS58 => base58::decode(input)
+                .map_err(|e| Error::InvalidInput(format!("Base58 decode error: {}", e))),
         };
-        
+
         match decoded {
             Ok(decoded_bytes) => {
                 bytes = Some(decoded_bytes);
@@ -48,11 +47,13 @@ pub fn decode_public_key(
             }
         }
     }
-    
+
     let bytes = bytes.ok_or_else(|| {
-        last_error.unwrap_or_else(|| Error::InvalidInput("Unknown encoding type or decode failed".to_string()))
+        last_error.unwrap_or_else(|| {
+            Error::InvalidInput("Unknown encoding type or decode failed".to_string())
+        })
     })?;
-    
+
     // Validate key length matches key type
     match key_type {
         DetectedKeyType::Secp256k1 { .. } => {
@@ -72,7 +73,7 @@ pub fn decode_public_key(
             }
         }
     }
-    
+
     Ok(bytes)
 }
 
@@ -87,7 +88,7 @@ mod tests {
         let input = "0x0279be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798";
         let chars = extract_characteristics(input);
         let key_type = DetectedKeyType::Secp256k1 { compressed: true };
-        
+
         let result = decode_public_key(input, &chars, key_type);
         assert!(result.is_ok());
         let bytes = result.unwrap();
@@ -99,7 +100,7 @@ mod tests {
         let input = "0x0479be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798483ada7726a3c4655da4fbfc0e1108a8fd17b448a68554199c47d08ffb10d4b8";
         let chars = extract_characteristics(input);
         let key_type = DetectedKeyType::Secp256k1 { compressed: false };
-        
+
         let result = decode_public_key(input, &chars, key_type);
         assert!(result.is_ok());
         let bytes = result.unwrap();
@@ -111,7 +112,7 @@ mod tests {
         let input = "0x9f7f8c8d8e8f909192939495969798999a9b9c9d9e9fa0a1a2a3a4a5a6a7a8a9";
         let chars = extract_characteristics(input);
         let key_type = DetectedKeyType::Ed25519;
-        
+
         let result = decode_public_key(input, &chars, key_type);
         assert!(result.is_ok());
         let bytes = result.unwrap();
@@ -124,7 +125,7 @@ mod tests {
         let input = "9WzDXwBbmkg8ZTbNMqUxvQRAyrZzDsGYdLVL9zYtAWWM";
         let chars = extract_characteristics(input);
         let key_type = DetectedKeyType::Ed25519;
-        
+
         let result = decode_public_key(input, &chars, key_type);
         assert!(result.is_ok());
         let bytes = result.unwrap();
@@ -137,7 +138,7 @@ mod tests {
         let mut chars = extract_characteristics(input);
         chars.encoding = vec![EncodingType::Hex];
         let key_type = DetectedKeyType::Secp256k1 { compressed: true };
-        
+
         let result = decode_public_key(input, &chars, key_type);
         // Should fail either at decode or validation
         assert!(result.is_err());
@@ -149,7 +150,7 @@ mod tests {
         let mut chars = extract_characteristics(input);
         chars.encoding = vec![EncodingType::Hex];
         let key_type = DetectedKeyType::Ed25519;
-        
+
         let result = decode_public_key(input, &chars, key_type);
         // Should fail either at decode or validation
         assert!(result.is_err());
@@ -161,7 +162,7 @@ mod tests {
         let mut chars = extract_characteristics(input);
         chars.encoding = vec![]; // No encoding detected
         let key_type = DetectedKeyType::Ed25519;
-        
+
         let result = decode_public_key(input, &chars, key_type);
         assert!(result.is_err());
     }

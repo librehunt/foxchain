@@ -5,9 +5,7 @@
 //! only implements format-specific validation logic.
 
 use crate::input::InputCharacteristics;
-use crate::registry::{
-    AddressMetadata, ChecksumType, EncodingType,
-};
+use crate::registry::{AddressMetadata, ChecksumType, EncodingType};
 use crate::shared::checksum::{base58check, eip55};
 use crate::shared::encoding::bech32 as bech32_encoding;
 use crate::Error;
@@ -48,22 +46,22 @@ pub fn detect_address(
     } else {
         true // No checksum required
     };
-    
+
     // Validate version bytes if Base58Check
     let version_valid = if !metadata.version_bytes.is_empty() {
         validate_version_bytes(input, &metadata.version_bytes, metadata)?
     } else {
         true // No version requirement
     };
-    
+
     // If validation fails, return None
     if !checksum_valid || !version_valid {
         return Ok(None);
     }
-    
+
     // Normalize the address
     let normalized = normalize_address(input, metadata)?;
-    
+
     // Calculate confidence score (use actual checksum validity for confidence)
     let actual_checksum_valid = if let Some(ChecksumType::EIP55) = metadata.checksum {
         // Check if normalized address has valid checksum
@@ -74,12 +72,12 @@ pub fn detect_address(
     } else {
         true
     };
-    
+
     let confidence = calculate_confidence(actual_checksum_valid, version_valid, metadata);
-    
+
     // Generate reasoning
     let reasoning = generate_reasoning(metadata, actual_checksum_valid, version_valid);
-    
+
     Ok(Some(DetectionResult {
         chain,
         encoding: metadata.encoding,
@@ -96,9 +94,7 @@ fn validate_checksum(
     metadata: &AddressMetadata,
 ) -> Result<bool, Error> {
     match checksum_type {
-        ChecksumType::EIP55 => {
-            Ok(eip55::validate(input))
-        }
+        ChecksumType::EIP55 => Ok(eip55::validate(input)),
         ChecksumType::Base58Check => {
             let decoded = base58check::validate(input)?;
             if let Some((version, _)) = decoded {
@@ -112,18 +108,14 @@ fn validate_checksum(
                 Ok(false)
             }
         }
-        ChecksumType::Bech32 => {
-            match bech32_encoding::decode(input) {
-                Ok((_, _, variant)) => Ok(variant == bech32::Variant::Bech32),
-                Err(_) => Ok(false),
-            }
-        }
-        ChecksumType::Bech32m => {
-            match bech32_encoding::decode(input) {
-                Ok((_, _, variant)) => Ok(variant == bech32::Variant::Bech32m),
-                Err(_) => Ok(false),
-            }
-        }
+        ChecksumType::Bech32 => match bech32_encoding::decode(input) {
+            Ok((_, _, variant)) => Ok(variant == bech32::Variant::Bech32),
+            Err(_) => Ok(false),
+        },
+        ChecksumType::Bech32m => match bech32_encoding::decode(input) {
+            Ok((_, _, variant)) => Ok(variant == bech32::Variant::Bech32m),
+            Err(_) => Ok(false),
+        },
         ChecksumType::SS58 => {
             // SS58 validation is complex, delegate to shared module
             // For now, return true if it's valid Base58
@@ -171,23 +163,23 @@ fn calculate_confidence(
     metadata: &AddressMetadata,
 ) -> f64 {
     let mut confidence: f64 = 0.5; // Base confidence
-    
+
     // Boost for valid checksum
     if checksum_valid {
         confidence += 0.3;
     }
-    
+
     // Boost for valid version bytes
     if version_valid && !metadata.version_bytes.is_empty() {
         confidence += 0.1;
     }
-    
+
     // Boost for exact length match
     if metadata.exact_length.is_some() {
         // This is checked in filtering, so if we're here, it matches
         confidence += 0.05;
     }
-    
+
     // Cap at 1.0
     confidence.min(1.0)
 }
@@ -199,17 +191,17 @@ fn generate_reasoning(
     version_valid: bool,
 ) -> String {
     let mut parts = Vec::new();
-    
+
     parts.push(format!("{:?} address", metadata.encoding));
-    
+
     if checksum_valid {
         parts.push("valid checksum".to_string());
     }
-    
+
     if version_valid && !metadata.version_bytes.is_empty() {
         parts.push("valid version bytes".to_string());
     }
-    
+
     parts.join(", ")
 }
 
@@ -223,7 +215,7 @@ mod tests {
     fn test_detect_evm_address() {
         let input = "0x742d35Cc6634C0532925a3b844Bc454e4438f44e";
         let chars = extract_characteristics(input);
-        
+
         let metadata = AddressMetadata {
             encoding: EncodingType::Hex,
             char_set: Some(CharSet::Hex),
@@ -235,10 +227,9 @@ mod tests {
             checksum: Some(ChecksumType::EIP55),
             network: Some(Network::Mainnet),
         };
-        
+
         let result = detect_address(input, &chars, &metadata, "ethereum".to_string());
         assert!(result.is_ok());
         // Result may be Some or None depending on checksum validation
     }
 }
-

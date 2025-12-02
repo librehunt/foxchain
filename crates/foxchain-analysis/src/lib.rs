@@ -14,13 +14,15 @@ impl Client {
     /// Create a client for a specific chain
     ///
     /// Uses environment variables for provider configuration (e.g., ETHERSCAN_API_KEY, ALCHEMY_API_KEY)
-    /// 
+    ///
     /// # Arguments
-    /// 
+    ///
     /// * `chain` - Chain ID as a string (e.g., "ethereum", "bitcoin", "polygon")
     pub fn for_chain(chain: &str) -> Result<Self, Error> {
         // TODO: Initialize client with provider configuration from environment
-        Ok(Client { chain: chain.to_string() })
+        Ok(Client {
+            chain: chain.to_string(),
+        })
     }
 
     /// Get account summary for an address

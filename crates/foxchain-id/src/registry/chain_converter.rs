@@ -1,5 +1,8 @@
 use crate::models::chain::ChainConfig;
-use crate::registry::{AddressMetadata, ChainMetadata, EncodingType, CharSet, Network, PublicKeyMetadata, PublicKeyType};
+use crate::registry::{
+    AddressMetadata, ChainMetadata, CharSet, EncodingType, Network, PublicKeyMetadata,
+    PublicKeyType,
+};
 
 /// Convert encoding string to EncodingType
 fn encoding_str_to_enum(s: &str) -> EncodingType {
@@ -41,7 +44,8 @@ pub fn convert_chain_config(config: ChainConfig) -> Result<ChainMetadata, String
         }],
         "bitcoin_p2pkh" => {
             // Extract version byte from address_params
-            let version_byte = config.address_params
+            let version_byte = config
+                .address_params
                 .get("version_byte")
                 .and_then(|v| v.as_u64())
                 .map(|v| v as u8)
@@ -88,7 +92,7 @@ pub fn convert_chain_config(config: ChainConfig) -> Result<ChainMetadata, String
                 network: Some(Network::Mainnet),
             });
             formats
-        },
+        }
         "bitcoin_bech32" => vec![AddressMetadata {
             encoding: EncodingType::Bech32,
             char_set: Some(CharSet::Base32),
@@ -102,16 +106,22 @@ pub fn convert_chain_config(config: ChainConfig) -> Result<ChainMetadata, String
         }],
         "cosmos" => {
             // Extract HRP from address_params
-            let hrps: Vec<String> = config.address_params
+            let hrps: Vec<String> = config
+                .address_params
                 .get("hrp")
                 .and_then(|h| h.as_str())
                 .map(|h| vec![h.to_string()])
                 .unwrap_or_else(|| {
                     // Try to get from array
-                    config.address_params
+                    config
+                        .address_params
                         .get("hrps")
                         .and_then(|h| h.as_array())
-                        .map(|arr| arr.iter().filter_map(|v| v.as_str().map(|s| s.to_string())).collect())
+                        .map(|arr| {
+                            arr.iter()
+                                .filter_map(|v| v.as_str().map(|s| s.to_string()))
+                                .collect()
+                        })
                         .unwrap_or_default()
                 });
             vec![AddressMetadata {
@@ -125,13 +135,18 @@ pub fn convert_chain_config(config: ChainConfig) -> Result<ChainMetadata, String
                 checksum: Some(crate::registry::ChecksumType::Bech32),
                 network: Some(Network::Mainnet),
             }]
-        },
+        }
         "cardano" => {
             // Extract HRPs from address_params
-            let hrps: Vec<String> = config.address_params
+            let hrps: Vec<String> = config
+                .address_params
                 .get("hrps")
                 .and_then(|h| h.as_array())
-                .map(|arr| arr.iter().filter_map(|v| v.as_str().map(|s| s.to_string())).collect())
+                .map(|arr| {
+                    arr.iter()
+                        .filter_map(|v| v.as_str().map(|s| s.to_string()))
+                        .collect()
+                })
                 .unwrap_or_default();
             vec![AddressMetadata {
                 encoding: EncodingType::Bech32,
@@ -144,7 +159,7 @@ pub fn convert_chain_config(config: ChainConfig) -> Result<ChainMetadata, String
                 checksum: Some(crate::registry::ChecksumType::Bech32),
                 network: Some(Network::Mainnet),
             }]
-        },
+        }
         "solana" => vec![AddressMetadata {
             encoding: EncodingType::Base58,
             char_set: Some(CharSet::Base58),
@@ -190,28 +205,27 @@ pub fn convert_chain_config(config: ChainConfig) -> Result<ChainMetadata, String
             network: Some(Network::Mainnet),
         }],
     };
-    
+
     // Convert public key formats
-    let public_key_formats: Vec<PublicKeyMetadata> = config.public_key_formats
+    let public_key_formats: Vec<PublicKeyMetadata> = config
+        .public_key_formats
         .into_iter()
-        .map(|pk_fmt| {
-            PublicKeyMetadata {
-                encoding: encoding_str_to_enum(&pk_fmt.encoding),
-                char_set: match pk_fmt.encoding.as_str() {
-                    "hex" => Some(CharSet::Hex),
-                    "base58" => Some(CharSet::Base58),
-                    _ => None,
-                },
-                exact_length: pk_fmt.exact_length,
-                length_range: pk_fmt.length_range,
-                prefixes: pk_fmt.prefixes,
-                hrps: vec![],
-                key_type: curve_str_to_key_type(&config.curve),
-                checksum: None,
-            }
+        .map(|pk_fmt| PublicKeyMetadata {
+            encoding: encoding_str_to_enum(&pk_fmt.encoding),
+            char_set: match pk_fmt.encoding.as_str() {
+                "hex" => Some(CharSet::Hex),
+                "base58" => Some(CharSet::Base58),
+                _ => None,
+            },
+            exact_length: pk_fmt.exact_length,
+            length_range: pk_fmt.length_range,
+            prefixes: pk_fmt.prefixes,
+            hrps: vec![],
+            key_type: curve_str_to_key_type(&config.curve),
+            checksum: None,
         })
         .collect();
-    
+
     Ok(ChainMetadata {
         id: config.id.clone(),
         name: config.name,

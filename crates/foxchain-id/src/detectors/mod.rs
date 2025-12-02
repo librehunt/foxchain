@@ -6,4 +6,3 @@
 pub mod address;
 
 pub use address::detect_address;
-

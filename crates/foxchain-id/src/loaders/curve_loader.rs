@@ -10,8 +10,7 @@ pub fn load_curve(id: &str) -> Result<CurveMetadata, String> {
         "sr25519" => include_str!("../../metadata/curves/sr25519.json"),
         _ => return Err(format!("Unknown curve: {}", id)),
     };
-    serde_json::from_str(json)
-        .map_err(|e| format!("Failed to parse curve JSON for {}: {}", id, e))
+    serde_json::from_str(json).map_err(|e| format!("Failed to parse curve JSON for {}: {}", id, e))
 }
 
 #[cfg(test)]
@@ -49,4 +48,3 @@ mod tests {
         assert!(result.unwrap_err().contains("Unknown curve"));
     }
 }
-

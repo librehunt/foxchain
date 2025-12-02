@@ -30,4 +30,3 @@ pub struct PipelineStep {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub end: Option<usize>,
 }
-

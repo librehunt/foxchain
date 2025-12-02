@@ -39,7 +39,10 @@ impl CategorySignature {
             // Prefer standard prefixes: "0x", "bc1", "tb1", "ltc1"
             if prefixes.contains(&"0x".to_string()) {
                 vec!["0x".to_string()]
-            } else if let Some(bech32) = prefixes.iter().find(|p| p.starts_with("bc1") || p.starts_with("tb1") || p.starts_with("ltc1")) {
+            } else if let Some(bech32) = prefixes
+                .iter()
+                .find(|p| p.starts_with("bc1") || p.starts_with("tb1") || p.starts_with("ltc1"))
+            {
                 vec![bech32.clone()]
             } else if !prefixes.is_empty() {
                 // Keep longest prefix as fallback
@@ -50,18 +53,22 @@ impl CategorySignature {
                 vec![]
             }
         };
-        
+
         CategorySignature {
             char_set: Some(chars.char_set),
             min_len: chars.length,
             max_len: chars.length,
             has_hrp: chars.hrp.is_some(),
             prefixes: normalized_prefixes,
-            hrp_prefixes: chars.hrp.as_ref().map(|h| vec![h.clone()]).unwrap_or_default(),
+            hrp_prefixes: chars
+                .hrp
+                .as_ref()
+                .map(|h| vec![h.clone()])
+                .unwrap_or_default(),
             encoding_type: chars.encoding.first().copied(), // Use first encoding for signature
         }
     }
-    
+
     /// Derive signature from address metadata
     pub fn from_metadata(metadata: &AddressMetadata) -> Self {
         let (min_len, max_len) = if let Some(exact) = metadata.exact_length {
@@ -72,7 +79,7 @@ impl CategorySignature {
             // Default range if no length specified
             (0, usize::MAX)
         };
-        
+
         CategorySignature {
             char_set: metadata.char_set,
             min_len,
@@ -83,7 +90,7 @@ impl CategorySignature {
             encoding_type: Some(metadata.encoding),
         }
     }
-    
+
     /// Check if this signature matches input characteristics
     #[allow(dead_code)] // Reserved for future use
     pub fn matches(&self, chars: &InputCharacteristics) -> bool {
@@ -93,12 +100,12 @@ impl CategorySignature {
                 return false;
             }
         }
-        
+
         // Check length range
         if chars.length < self.min_len || chars.length > self.max_len {
             return false;
         }
-        
+
         // Check HRP requirement
         if self.has_hrp && chars.hrp.is_none() {
             return false;
@@ -107,12 +114,12 @@ impl CategorySignature {
             // If signature doesn't require HRP but input has one, still match
             // (HRP is optional in signature)
         }
-        
+
         // Check prefixes
         if !self.prefixes.is_empty() && !self.prefixes.iter().any(|p| chars.prefixes.contains(p)) {
             return false;
         }
-        
+
         // Check HRP prefixes
         if !self.hrp_prefixes.is_empty() {
             if let Some(ref hrp) = chars.hrp {
@@ -123,14 +130,14 @@ impl CategorySignature {
                 return false;
             }
         }
-        
+
         // Check encoding type - match if any of the detected encodings matches
         if let Some(ref encoding) = self.encoding_type {
             if !chars.encoding.contains(encoding) {
                 return false;
             }
         }
-        
+
         true
     }
 }
@@ -146,7 +153,7 @@ mod tests {
         let input = "0x742d35Cc6634C0532925a3b844Bc454e4438f44e";
         let chars = extract_characteristics(input);
         let sig = CategorySignature::from(&chars);
-        
+
         assert_eq!(sig.char_set, Some(CharSet::Hex));
         assert_eq!(sig.min_len, 42);
         assert_eq!(sig.max_len, 42);
@@ -167,9 +174,9 @@ mod tests {
             checksum: Some(ChecksumType::EIP55),
             network: Some(Network::Mainnet),
         };
-        
+
         let sig = CategorySignature::from_metadata(&metadata);
-        
+
         assert_eq!(sig.char_set, Some(CharSet::Hex));
         assert_eq!(sig.min_len, 42);
         assert_eq!(sig.max_len, 42);
@@ -182,8 +189,7 @@ mod tests {
         let input = "0x742d35Cc6634C0532925a3b844Bc454e4438f44e";
         let chars = extract_characteristics(input);
         let sig = CategorySignature::from(&chars);
-        
+
         assert!(sig.matches(&chars));
     }
 }
-

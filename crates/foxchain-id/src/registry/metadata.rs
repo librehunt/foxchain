@@ -4,7 +4,6 @@
 //! entire detection pipeline. All format detection logic is declarative,
 //! eliminating the need for hardcoded heuristics.
 
-
 /// Metadata for a blockchain chain
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ChainMetadata {
@@ -46,16 +45,12 @@ impl AddressMetadata {
     ///
     /// Performs structural validation: checksums, decodes, prefix/HRP rules.
     /// This is the metadata-driven validation stage.
-    pub fn validate_raw(
-        &self,
-        raw: &str,
-        chars: &crate::input::InputCharacteristics,
-    ) -> bool {
+    pub fn validate_raw(&self, raw: &str, chars: &crate::input::InputCharacteristics) -> bool {
         // Check encoding type matches - try all detected encodings
         if !chars.encoding.is_empty() && !chars.encoding.contains(&self.encoding) {
             return false;
         }
-        
+
         // Check length
         if let Some(exact) = self.exact_length {
             if chars.length != exact {
@@ -67,17 +62,18 @@ impl AddressMetadata {
                 return false;
             }
         }
-        
+
         // Check prefixes
         // For Base58Check with version bytes, prefix is determined by version byte
         // so we skip prefix check and rely on version byte validation instead
         if !self.prefixes.is_empty() {
-            let skip_prefix_check = matches!(self.encoding, EncodingType::Base58Check) && !self.version_bytes.is_empty();
+            let skip_prefix_check = matches!(self.encoding, EncodingType::Base58Check)
+                && !self.version_bytes.is_empty();
             if !skip_prefix_check && !self.prefixes.iter().any(|p| chars.prefixes.contains(p)) {
                 return false;
             }
         }
-        
+
         // Check HRP
         if !self.hrps.is_empty() {
             if let Some(ref hrp) = chars.hrp {
@@ -88,7 +84,7 @@ impl AddressMetadata {
                 return false;
             }
         }
-        
+
         // Structural validation based on encoding and checksum
         match self.encoding {
             EncodingType::Hex => {
@@ -235,10 +231,10 @@ mod tests {
             checksum: None,
             network: Some(Network::Mainnet),
         };
-        
+
         let input = "1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa"; // Base58, not hex
         let chars = extract_characteristics(input);
-        
+
         assert!(!metadata.validate_raw(input, &chars));
     }
 
@@ -255,10 +251,10 @@ mod tests {
             checksum: None,
             network: Some(Network::Mainnet),
         };
-        
+
         let input = "0x1234"; // Too short
         let chars = extract_characteristics(input);
-        
+
         assert!(!metadata.validate_raw(input, &chars));
     }
 
@@ -275,10 +271,10 @@ mod tests {
             checksum: Some(ChecksumType::Base58Check),
             network: Some(Network::Mainnet),
         };
-        
+
         let input = "1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa"; // 34 chars, within range, valid Bitcoin address
         let chars = extract_characteristics(input);
-        
+
         assert!(metadata.validate_raw(input, &chars));
     }
 
@@ -295,10 +291,10 @@ mod tests {
             checksum: None,
             network: Some(Network::Mainnet),
         };
-        
+
         let input = "123"; // Too short
         let chars = extract_characteristics(input);
-        
+
         assert!(!metadata.validate_raw(input, &chars));
     }
 
@@ -315,10 +311,10 @@ mod tests {
             checksum: None,
             network: Some(Network::Mainnet),
         };
-        
+
         let input = "osmo1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4"; // Wrong HRP (osmo, not cosmos)
         let chars = extract_characteristics(input);
-        
+
         assert!(!metadata.validate_raw(input, &chars));
     }
 
@@ -335,10 +331,10 @@ mod tests {
             checksum: None,
             network: Some(Network::Mainnet),
         };
-        
+
         let input = "0x742d35Cc6634C0532925a3b844Bc454e4438f44e"; // No HRP
         let chars = extract_characteristics(input);
-        
+
         assert!(!metadata.validate_raw(input, &chars));
     }
 
@@ -355,10 +351,10 @@ mod tests {
             checksum: Some(ChecksumType::Base58Check),
             network: Some(Network::Mainnet),
         };
-        
+
         let input = "1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa"; // Valid Bitcoin P2PKH
         let chars = extract_characteristics(input);
-        
+
         assert!(metadata.validate_raw(input, &chars));
     }
 
@@ -375,10 +371,10 @@ mod tests {
             checksum: Some(ChecksumType::Base58Check),
             network: Some(Network::Mainnet),
         };
-        
+
         let input = "1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa"; // P2PKH (version 0), not P2SH
         let chars = extract_characteristics(input);
-        
+
         assert!(!metadata.validate_raw(input, &chars));
     }
 
@@ -395,10 +391,10 @@ mod tests {
             checksum: None,
             network: Some(Network::Mainnet),
         };
-        
+
         let input = "0xgggggggggggggggggggggggggggggggggggggggg"; // Invalid hex
         let chars = extract_characteristics(input);
-        
+
         assert!(!metadata.validate_raw(input, &chars));
     }
 
@@ -415,11 +411,10 @@ mod tests {
             checksum: None,
             network: Some(Network::Mainnet),
         };
-        
+
         let input = "cosmos1invalid"; // Invalid Bech32
         let chars = extract_characteristics(input);
-        
+
         assert!(!metadata.validate_raw(input, &chars));
     }
 }
-

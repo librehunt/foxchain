@@ -26,7 +26,7 @@ pub use identify::{identify as identify_all, IdentificationCandidate, InputType}
 ///
 /// let candidates = identify("0x742d35Cc6634C0532925a3b844Bc454e4438f44e")?;
 /// for candidate in candidates {
-///     println!("Chain: {:?}, Confidence: {}, Normalized: {}", 
+///     println!("Chain: {:?}, Confidence: {}, Normalized: {}",
 ///              candidate.chain, candidate.confidence, candidate.normalized);
 /// }
 /// # Ok::<(), foxchain_id::Error>(())
@@ -103,8 +103,21 @@ mod tests {
         // Should have multiple EVM chains
         assert!(candidates.len() >= 1);
         // All should be EVM chains
-        let evm_chains = ["ethereum", "polygon", "bsc", "avalanche", "arbitrum", "optimism", "base", "fantom", "celo", "gnosis"];
-        assert!(candidates.iter().all(|c| evm_chains.contains(&c.chain.as_str())));
+        let evm_chains = [
+            "ethereum",
+            "polygon",
+            "bsc",
+            "avalanche",
+            "arbitrum",
+            "optimism",
+            "base",
+            "fantom",
+            "celo",
+            "gnosis",
+        ];
+        assert!(candidates
+            .iter()
+            .all(|c| evm_chains.contains(&c.chain.as_str())));
     }
 
     #[test]
@@ -127,7 +140,10 @@ mod tests {
         assert!(result.is_err());
         if let Err(Error::InvalidInput(msg)) = result {
             // Classifier returns "Unable to classify input format" when no possibilities found
-            assert!(msg.contains("Unable to classify input format") || msg.contains("Unable to identify address format"));
+            assert!(
+                msg.contains("Unable to classify input format")
+                    || msg.contains("Unable to identify address format")
+            );
             assert!(msg.contains("xyz123abc"));
         } else {
             panic!("Expected InvalidInput error");
@@ -141,7 +157,10 @@ mod tests {
         assert!(result.is_err());
         if let Err(Error::InvalidInput(msg)) = result {
             // Classifier returns "Unable to classify input format" when no possibilities found
-            assert!(msg.contains("Unable to classify input format") || msg.contains("Unable to identify address format"));
+            assert!(
+                msg.contains("Unable to classify input format")
+                    || msg.contains("Unable to identify address format")
+            );
         } else {
             panic!("Expected InvalidInput error");
         }
@@ -190,5 +209,4 @@ mod tests {
             assert!(!candidates.is_empty());
         }
     }
-
 }

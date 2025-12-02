@@ -8,9 +8,12 @@
 //! 5. Return all candidates sorted by confidence
 
 use crate::detectors::detect_address;
-use crate::input::{classify_input, extract_characteristics, match_input_with_metadata, InputCharacteristics, InputPossibility};
-use crate::registry::{Registry, PublicKeyType};
+use crate::input::{
+    classify_input, extract_characteristics, match_input_with_metadata, InputCharacteristics,
+    InputPossibility,
+};
 use crate::pipelines::addresses::execute_pipeline;
+use crate::registry::{PublicKeyType, Registry};
 use crate::shared::derivation::decode_public_key;
 use crate::Error;
 use serde_json::json;
@@ -55,14 +58,14 @@ pub enum InputType {
 pub fn identify(input: &str) -> Result<Vec<IdentificationCandidate>, Error> {
     // Step 1: Extract characteristics
     let chars = extract_characteristics(input);
-    
+
     // Step 2: Classify input to get all possibilities (non-chain-aware)
     let possibilities = classify_input(input, &chars)?;
-    
+
     // Step 3: Match with metadata (metadata-driven signature matching)
     let registry = Registry::get();
     let chain_matches = match_input_with_metadata(input, &chars, &possibilities, registry);
-    
+
     // Step 4: Process matches with structural validation
     let results: Vec<IdentificationCandidate> = chain_matches
         .into_iter()
@@ -77,7 +80,7 @@ pub fn identify(input: &str) -> Result<Vec<IdentificationCandidate>, Error> {
             }
         })
         .collect();
-    
+
     // Sort by confidence (highest first)
     // Note: sort_by is acceptable here as it's a standard sorting operation, not a nested loop
     let mut sorted_results = results;
@@ -86,7 +89,7 @@ pub fn identify(input: &str) -> Result<Vec<IdentificationCandidate>, Error> {
             .partial_cmp(&a.confidence)
             .unwrap_or(std::cmp::Ordering::Equal)
     });
-    
+
     if sorted_results.is_empty() {
         Err(Error::InvalidInput(format!(
             "Unable to identify address format: {}",
@@ -104,13 +107,13 @@ fn try_address_detection_for_chain(
     chain_id: &str,
 ) -> Vec<IdentificationCandidate> {
     let registry = Registry::get();
-    
+
     // Find the chain metadata
     let chain_metadata = match registry.chains.iter().find(|c| c.id == chain_id) {
         Some(chain) => chain,
         None => return Vec::new(),
     };
-    
+
     chain_metadata
         .address_formats
         .iter()
@@ -145,21 +148,21 @@ fn try_public_key_derivation_for_chain(
     };
 
     let registry = Registry::get();
-    
+
     // Get chain config
     let chain_config = match registry.get_chain_config(chain_id) {
         Some(config) => config,
         None => return Vec::new(),
     };
-    
+
     // Check if chain requires stake key (Cardano) - skip if only 1 PK provided
     if chain_config.requires_stake_key {
         return Vec::new();
     }
-    
+
     // Build pipeline params from chain config
     let params = json!(chain_config.address_params);
-    
+
     // Execute pipeline
     match execute_pipeline(&chain_config.address_pipeline, &key_bytes, &params) {
         Ok(derived_address) => {
@@ -169,18 +172,19 @@ fn try_public_key_derivation_for_chain(
                 Some(chain) => chain,
                 None => return Vec::new(),
             };
-            
-            let matches = chain_metadata.address_formats.iter().any(|addr_format| {
-                addr_format.validate_raw(&derived_address, &derived_chars)
-            });
-            
+
+            let matches = chain_metadata
+                .address_formats
+                .iter()
+                .any(|addr_format| addr_format.validate_raw(&derived_address, &derived_chars));
+
             if matches {
                 let curve = match key_type {
                     crate::input::DetectedKeyType::Secp256k1 { .. } => PublicKeyType::Secp256k1,
                     crate::input::DetectedKeyType::Ed25519 => PublicKeyType::Ed25519,
                     crate::input::DetectedKeyType::Sr25519 => PublicKeyType::Sr25519,
                 };
-                
+
                 vec![IdentificationCandidate {
                     input_type: InputType::PublicKey,
                     chain: chain_id.to_string(),
@@ -210,7 +214,6 @@ fn curve_name(key_type: PublicKeyType) -> &'static str {
     }
 }
 
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -232,7 +235,7 @@ mod tests {
         // Test full identify() pipeline with EVM address from failing test
         let input = "0xd8da6bf26964af9d7eed9e03e53415d37aa96045";
         let result = identify(input);
-        
+
         // Verify the full pipeline works
         if result.is_ok() {
             let candidates = result.unwrap();
@@ -241,7 +244,7 @@ mod tests {
             assert!(candidates.iter().any(|c| c.chain == "ethereum"));
             // Should be sorted by confidence (highest first)
             for i in 1..candidates.len() {
-                assert!(candidates[i-1].confidence >= candidates[i].confidence);
+                assert!(candidates[i - 1].confidence >= candidates[i].confidence);
             }
             // First candidate should have highest confidence
             assert!(candidates[0].confidence > 0.0);
@@ -260,7 +263,7 @@ mod tests {
         // Test full identify() pipeline with mixed case EVM address from failing test
         let input = "0x742d35Cc6634C0532925a3b844Bc454e4438f44e";
         let result = identify(input);
-        
+
         // Verify the full pipeline works
         if result.is_ok() {
             let candidates = result.unwrap();
@@ -268,11 +271,24 @@ mod tests {
             // Should have multiple EVM chains
             assert!(candidates.len() >= 1);
             // All should be EVM chains
-            let evm_chains = ["ethereum", "polygon", "bsc", "avalanche", "arbitrum", "optimism", "base", "fantom", "celo", "gnosis"];
-            assert!(candidates.iter().all(|c| evm_chains.contains(&c.chain.as_str())));
+            let evm_chains = [
+                "ethereum",
+                "polygon",
+                "bsc",
+                "avalanche",
+                "arbitrum",
+                "optimism",
+                "base",
+                "fantom",
+                "celo",
+                "gnosis",
+            ];
+            assert!(candidates
+                .iter()
+                .all(|c| evm_chains.contains(&c.chain.as_str())));
             // Should be sorted by confidence
             for i in 1..candidates.len() {
-                assert!(candidates[i-1].confidence >= candidates[i].confidence);
+                assert!(candidates[i - 1].confidence >= candidates[i].confidence);
             }
         } else {
             // If it fails, verify error structure
@@ -296,7 +312,7 @@ mod tests {
         let tron_addr = full_bytes.to_base58();
 
         let result = identify(&tron_addr);
-        
+
         // Verify the full pipeline works
         if result.is_ok() {
             let candidates = result.unwrap();
@@ -310,7 +326,7 @@ mod tests {
             }
             // Should be sorted by confidence
             for i in 1..candidates.len() {
-                assert!(candidates[i-1].confidence >= candidates[i].confidence);
+                assert!(candidates[i - 1].confidence >= candidates[i].confidence);
             }
         } else {
             // If it fails, verify error structure
@@ -323,7 +339,7 @@ mod tests {
         // Test that identify() returns correct structure even if detection fails
         let input = "0xd8da6bf26964af9d7eed9e03e53415d37aa96045";
         let result = identify(input);
-        
+
         // Verify return structure
         match result {
             Ok(candidates) => {
@@ -335,13 +351,15 @@ mod tests {
                     assert!(!candidate.reasoning.is_empty());
                     // Verify encoding is valid
                     match candidate.encoding {
-                        crate::registry::EncodingType::Hex => assert!(candidate.normalized.starts_with("0x")),
+                        crate::registry::EncodingType::Hex => {
+                            assert!(candidate.normalized.starts_with("0x"))
+                        }
                         _ => {}
                     }
                 }
                 // Verify sorting (highest confidence first)
                 for i in 1..candidates.len() {
-                    assert!(candidates[i-1].confidence >= candidates[i].confidence);
+                    assert!(candidates[i - 1].confidence >= candidates[i].confidence);
                 }
             }
             Err(e) => {
@@ -367,13 +385,26 @@ mod tests {
         // Test burn address valid on all EVM chains
         let input = "0x000000000000000000000000000000000000dEaD";
         let result = identify(input).unwrap();
-        
+
         assert!(!result.is_empty());
         // Should match multiple EVM chains
-        let evm_chains = ["ethereum", "polygon", "bsc", "avalanche", "arbitrum", "optimism", "base", "fantom", "celo", "gnosis"];
+        let evm_chains = [
+            "ethereum",
+            "polygon",
+            "bsc",
+            "avalanche",
+            "arbitrum",
+            "optimism",
+            "base",
+            "fantom",
+            "celo",
+            "gnosis",
+        ];
         let matched_chains: Vec<_> = result.iter().map(|c| c.chain.as_str()).collect();
-        assert!(evm_chains.iter().any(|&chain| matched_chains.contains(&chain)));
-        
+        assert!(evm_chains
+            .iter()
+            .any(|&chain| matched_chains.contains(&chain)));
+
         // Verify all are addresses
         assert!(result.iter().all(|c| c.input_type == InputType::Address));
         // Verify normalization
@@ -386,13 +417,26 @@ mod tests {
         // Test Vitalik's address
         let input = "0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045";
         let result = identify(input).unwrap();
-        
+
         assert!(!result.is_empty());
         // Should match multiple EVM chains
-        let evm_chains = ["ethereum", "polygon", "bsc", "avalanche", "arbitrum", "optimism", "base", "fantom", "celo", "gnosis"];
+        let evm_chains = [
+            "ethereum",
+            "polygon",
+            "bsc",
+            "avalanche",
+            "arbitrum",
+            "optimism",
+            "base",
+            "fantom",
+            "celo",
+            "gnosis",
+        ];
         let matched_chains: Vec<_> = result.iter().map(|c| c.chain.as_str()).collect();
-        assert!(evm_chains.iter().any(|&chain| matched_chains.contains(&chain)));
-        
+        assert!(evm_chains
+            .iter()
+            .any(|&chain| matched_chains.contains(&chain)));
+
         // Verify normalization to EIP55
         assert!(result[0].normalized.starts_with("0x"));
         assert_eq!(result[0].normalized.len(), 42);
@@ -403,12 +447,25 @@ mod tests {
         // Test USDT contract address
         let input = "0xdAC17F958D2ee523a2206206994597C13D831ec7";
         let result = identify(input).unwrap();
-        
+
         assert!(!result.is_empty());
         // Should match multiple EVM chains
-        let evm_chains = ["ethereum", "polygon", "bsc", "avalanche", "arbitrum", "optimism", "base", "fantom", "celo", "gnosis"];
+        let evm_chains = [
+            "ethereum",
+            "polygon",
+            "bsc",
+            "avalanche",
+            "arbitrum",
+            "optimism",
+            "base",
+            "fantom",
+            "celo",
+            "gnosis",
+        ];
         let matched_chains: Vec<_> = result.iter().map(|c| c.chain.as_str()).collect();
-        assert!(evm_chains.iter().any(|&chain| matched_chains.contains(&chain)));
+        assert!(evm_chains
+            .iter()
+            .any(|&chain| matched_chains.contains(&chain)));
     }
 
     #[test]
@@ -416,7 +473,7 @@ mod tests {
         // Test lowercase EVM address (should normalize)
         let input = "0xd8da6bf26964af9d7eed9e03e53415d37aa96045";
         let result = identify(input).unwrap();
-        
+
         assert!(!result.is_empty());
         // Should be normalized (not same as input if input was lowercase)
         assert!(result[0].normalized.starts_with("0x"));
@@ -428,7 +485,7 @@ mod tests {
         // Test uppercase EVM address (should normalize)
         let input = "0xD8DA6BF26964AF9D7EED9E03E53415D37AA96045";
         let result = identify(input).unwrap();
-        
+
         assert!(!result.is_empty());
         // Should be normalized
         assert!(result[0].normalized.starts_with("0x"));
@@ -441,7 +498,7 @@ mod tests {
         // Test Bitcoin P2PKH address (genesis block)
         let input = "1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa";
         let result = identify(input).unwrap();
-        
+
         assert!(!result.is_empty());
         // Should match Bitcoin
         assert!(result.iter().any(|c| c.chain == "bitcoin"));
@@ -455,7 +512,7 @@ mod tests {
         // Test Bitcoin P2SH address
         let input = "3J98t1WpEZ73CNmQviecrnyiWrnqRhWNLy";
         let result = identify(input).unwrap();
-        
+
         assert!(!result.is_empty());
         // Should match Bitcoin
         assert!(result.iter().any(|c| c.chain == "bitcoin"));
@@ -466,7 +523,7 @@ mod tests {
         // Test Bitcoin Bech32 address
         let input = "bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4";
         let result = identify(input).unwrap();
-        
+
         assert!(!result.is_empty());
         // Should match Bitcoin
         assert!(result.iter().any(|c| c.chain == "bitcoin"));
@@ -479,7 +536,7 @@ mod tests {
         // Test Litecoin address
         let input = "LcNS6c8RddAMjewDrUAAi8BzecKoosnkN3";
         let result = identify(input).unwrap();
-        
+
         assert!(!result.is_empty());
         // Should match Litecoin
         assert!(result.iter().any(|c| c.chain == "litecoin"));
@@ -490,7 +547,7 @@ mod tests {
         // Test Dogecoin address
         let input = "DH5yaieqoZN36fDVciNyRueRGvGLR3mr7L";
         let result = identify(input).unwrap();
-        
+
         assert!(!result.is_empty());
         // Should match Dogecoin
         assert!(result.iter().any(|c| c.chain == "dogecoin"));
@@ -504,7 +561,7 @@ mod tests {
         // For now, test with a pattern that should be detected
         let input = "cosmos1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4";
         let result = identify(input);
-        
+
         // Check if it's classified correctly (might fail if address is invalid)
         match result {
             Ok(candidates) => {
@@ -529,7 +586,7 @@ mod tests {
         // Test Osmosis address
         let input = "osmo1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4";
         let result = identify(input);
-        
+
         if let Ok(candidates) = result {
             if candidates.iter().any(|c| c.chain == "osmosis") {
                 let osmosis_match = candidates.iter().find(|c| c.chain == "osmosis").unwrap();
@@ -543,7 +600,7 @@ mod tests {
         // Test Juno address
         let input = "juno1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4";
         let result = identify(input);
-        
+
         if let Ok(candidates) = result {
             if candidates.iter().any(|c| c.chain == "juno") {
                 let juno_match = candidates.iter().find(|c| c.chain == "juno").unwrap();
@@ -557,7 +614,7 @@ mod tests {
         // Test Akash address
         let input = "akash1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4";
         let result = identify(input);
-        
+
         if let Ok(candidates) = result {
             if candidates.iter().any(|c| c.chain == "akash") {
                 let akash_match = candidates.iter().find(|c| c.chain == "akash").unwrap();
@@ -571,7 +628,7 @@ mod tests {
         // Test Stargaze address
         let input = "stars1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4";
         let result = identify(input);
-        
+
         if let Ok(candidates) = result {
             if candidates.iter().any(|c| c.chain == "stargaze") {
                 let stargaze_match = candidates.iter().find(|c| c.chain == "stargaze").unwrap();
@@ -585,10 +642,13 @@ mod tests {
         // Test Secret Network address
         let input = "secret1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4";
         let result = identify(input);
-        
+
         if let Ok(candidates) = result {
             if candidates.iter().any(|c| c.chain == "secret_network") {
-                let secret_match = candidates.iter().find(|c| c.chain == "secret_network").unwrap();
+                let secret_match = candidates
+                    .iter()
+                    .find(|c| c.chain == "secret_network")
+                    .unwrap();
                 assert_eq!(secret_match.input_type, InputType::Address);
             }
         }
@@ -599,7 +659,7 @@ mod tests {
         // Test Terra address
         let input = "terra1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4";
         let result = identify(input);
-        
+
         if let Ok(candidates) = result {
             if candidates.iter().any(|c| c.chain == "terra") {
                 let terra_match = candidates.iter().find(|c| c.chain == "terra").unwrap();
@@ -613,7 +673,7 @@ mod tests {
         // Test Kava address
         let input = "kava1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4";
         let result = identify(input);
-        
+
         if let Ok(candidates) = result {
             if candidates.iter().any(|c| c.chain == "kava") {
                 let kava_match = candidates.iter().find(|c| c.chain == "kava").unwrap();
@@ -627,7 +687,7 @@ mod tests {
         // Test Regen address
         let input = "regen1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4";
         let result = identify(input);
-        
+
         if let Ok(candidates) = result {
             if candidates.iter().any(|c| c.chain == "regen") {
                 let regen_match = candidates.iter().find(|c| c.chain == "regen").unwrap();
@@ -641,7 +701,7 @@ mod tests {
         // Test Sentinel address
         let input = "sent1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4";
         let result = identify(input);
-        
+
         if let Ok(candidates) = result {
             if candidates.iter().any(|c| c.chain == "sentinel") {
                 let sentinel_match = candidates.iter().find(|c| c.chain == "sentinel").unwrap();
@@ -656,7 +716,7 @@ mod tests {
         // Test Polkadot address
         let input = "5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY";
         let result = identify(input).unwrap();
-        
+
         assert!(!result.is_empty());
         // Should match Polkadot
         assert!(result.iter().any(|c| c.chain == "polkadot"));
@@ -667,7 +727,7 @@ mod tests {
         // Test Kusama address
         let input = "5FHneW46xGXgs5mUiveU4sbTyGBzmstUspZC92UhjJM694ty";
         let result = identify(input).unwrap();
-        
+
         assert!(!result.is_empty());
         // Should match Kusama
         assert!(result.iter().any(|c| c.chain == "kusama"));
@@ -679,11 +739,13 @@ mod tests {
         // Using a valid SS58 address with different prefix
         let input = "5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY";
         let result = identify(input).unwrap();
-        
+
         assert!(!result.is_empty());
         // Should match at least one Substrate-based chain
         let substrate_chains = ["polkadot", "kusama", "substrate"];
-        assert!(result.iter().any(|c| substrate_chains.contains(&c.chain.as_str())));
+        assert!(result
+            .iter()
+            .any(|c| substrate_chains.contains(&c.chain.as_str())));
     }
 
     // 1.5 Other Chains (3 chains)
@@ -692,7 +754,7 @@ mod tests {
         // Test Solana address
         let input = "9WzDXwBbmkg8ZTbNMqUxvQRAyrZzDsGYdLVL9zYtAWWM";
         let result = identify(input).unwrap();
-        
+
         assert!(!result.is_empty());
         // Should match Solana (could also match as Ed25519 public key)
         assert!(result.iter().any(|c| c.chain == "solana"));
@@ -703,7 +765,7 @@ mod tests {
         // Test Solana USDC mint address
         let input = "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v";
         let result = identify(input).unwrap();
-        
+
         assert!(!result.is_empty());
         // Should match Solana
         assert!(result.iter().any(|c| c.chain == "solana"));
@@ -714,7 +776,7 @@ mod tests {
         // Test Tron address
         let input = "T9yD14Nj9j7xAB4dbGeiX9h8unkKHxuWwb";
         let result = identify(input).unwrap();
-        
+
         assert!(!result.is_empty());
         // Should match Tron
         assert!(result.iter().any(|c| c.chain == "tron"));
@@ -726,7 +788,7 @@ mod tests {
         // Using a real Cardano address format - if address is invalid Bech32, classification will fail
         let input = "addr1qx2fxv2umyhttkxyxp8x0dlpdt3k6cwng5pxj3jhsydzer3jcu5d8ps7zex2k2xt3uqxgjqnnjhl2zqwpg7h3vj6";
         let result = identify(input);
-        
+
         // If address is valid Bech32 and matches Cardano metadata, verify structure
         if let Ok(candidates) = result {
             assert!(!candidates.is_empty());
@@ -753,14 +815,29 @@ mod tests {
         // Using a valid compressed public key
         let input = "0x0279be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798";
         let result = identify(input).unwrap();
-        
+
         assert!(!result.is_empty());
         // Should match EVM chains
-        let evm_chains = ["ethereum", "polygon", "bsc", "avalanche", "arbitrum", "optimism", "base", "fantom", "celo", "gnosis"];
+        let evm_chains = [
+            "ethereum",
+            "polygon",
+            "bsc",
+            "avalanche",
+            "arbitrum",
+            "optimism",
+            "base",
+            "fantom",
+            "celo",
+            "gnosis",
+        ];
         let matched_chains: Vec<_> = result.iter().map(|c| c.chain.as_str()).collect();
-        assert!(evm_chains.iter().any(|&chain| matched_chains.contains(&chain)));
+        assert!(evm_chains
+            .iter()
+            .any(|&chain| matched_chains.contains(&chain)));
         // Should derive to addresses
-        assert!(result.iter().all(|c| c.input_type == InputType::PublicKey || c.input_type == InputType::Address));
+        assert!(result
+            .iter()
+            .all(|c| c.input_type == InputType::PublicKey || c.input_type == InputType::Address));
     }
 
     #[test]
@@ -768,12 +845,25 @@ mod tests {
         // Test uncompressed secp256k1 public key (65 bytes) for EVM chains
         let input = "0x0479be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798483ada7726a3c4655da4fbfc0e1108a8fd17b448a68554199c47d08ffb10d4b8";
         let result = identify(input).unwrap();
-        
+
         assert!(!result.is_empty());
         // Should match EVM chains
-        let evm_chains = ["ethereum", "polygon", "bsc", "avalanche", "arbitrum", "optimism", "base", "fantom", "celo", "gnosis"];
+        let evm_chains = [
+            "ethereum",
+            "polygon",
+            "bsc",
+            "avalanche",
+            "arbitrum",
+            "optimism",
+            "base",
+            "fantom",
+            "celo",
+            "gnosis",
+        ];
         let matched_chains: Vec<_> = result.iter().map(|c| c.chain.as_str()).collect();
-        assert!(evm_chains.iter().any(|&chain| matched_chains.contains(&chain)));
+        assert!(evm_chains
+            .iter()
+            .any(|&chain| matched_chains.contains(&chain)));
     }
 
     #[test]
@@ -781,11 +871,14 @@ mod tests {
         // Test secp256k1 public key for Bitcoin
         let input = "0x0279be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798";
         let result = identify(input);
-        
+
         if let Ok(candidates) = result {
             if candidates.iter().any(|c| c.chain == "bitcoin") {
                 let bitcoin_match = candidates.iter().find(|c| c.chain == "bitcoin").unwrap();
-                assert!(bitcoin_match.input_type == InputType::PublicKey || bitcoin_match.input_type == InputType::Address);
+                assert!(
+                    bitcoin_match.input_type == InputType::PublicKey
+                        || bitcoin_match.input_type == InputType::Address
+                );
             }
         }
     }
@@ -795,11 +888,14 @@ mod tests {
         // Test secp256k1 public key for Tron
         let input = "0x0279be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798";
         let result = identify(input);
-        
+
         if let Ok(candidates) = result {
             if candidates.iter().any(|c| c.chain == "tron") {
                 let tron_match = candidates.iter().find(|c| c.chain == "tron").unwrap();
-                assert!(tron_match.input_type == InputType::PublicKey || tron_match.input_type == InputType::Address);
+                assert!(
+                    tron_match.input_type == InputType::PublicKey
+                        || tron_match.input_type == InputType::Address
+                );
             }
         }
     }
@@ -811,12 +907,30 @@ mod tests {
         // Solana uses base58 for public keys, so let's use a hex-encoded 32-byte key
         let input = "0x9f7f8c8d8e8f909192939495969798999a9b9c9d9e9fa0a1a2a3a4a5a6a7a8a9";
         let result = identify(input);
-        
+
         if let Ok(candidates) = result {
-            if candidates.iter().any(|c| c.chain == "solana" || c.chain == "cardano" || c.chain.starts_with("cosmos") || c.chain == "polkadot" || c.chain == "kusama") {
+            if candidates.iter().any(|c| {
+                c.chain == "solana"
+                    || c.chain == "cardano"
+                    || c.chain.starts_with("cosmos")
+                    || c.chain == "polkadot"
+                    || c.chain == "kusama"
+            }) {
                 // Found Ed25519 chain match
-                let ed25519_match = candidates.iter().find(|c| c.chain == "solana" || c.chain == "cardano" || c.chain.starts_with("cosmos") || c.chain == "polkadot" || c.chain == "kusama").unwrap();
-                assert!(ed25519_match.input_type == InputType::PublicKey || ed25519_match.input_type == InputType::Address);
+                let ed25519_match = candidates
+                    .iter()
+                    .find(|c| {
+                        c.chain == "solana"
+                            || c.chain == "cardano"
+                            || c.chain.starts_with("cosmos")
+                            || c.chain == "polkadot"
+                            || c.chain == "kusama"
+                    })
+                    .unwrap();
+                assert!(
+                    ed25519_match.input_type == InputType::PublicKey
+                        || ed25519_match.input_type == InputType::Address
+                );
             }
         }
     }
@@ -826,7 +940,7 @@ mod tests {
         // Test Ed25519 public key for Cardano (hex format)
         let input = "0x9f7f8c8d8e8f909192939495969798999a9b9c9d9e9fa0a1a2a3a4a5a6a7a8a9";
         let result = identify(input);
-        
+
         // Cardano requires stake key, so single PK might not match
         if let Ok(candidates) = result {
             if candidates.iter().any(|c| c.chain == "cardano") {
@@ -841,14 +955,34 @@ mod tests {
         // Test Ed25519 public key for Cosmos chains
         let input = "0x9f7f8c8d8e8f909192939495969798999a9b9c9d9e9fa0a1a2a3a4a5a6a7a8a9";
         let result = identify(input);
-        
+
         if let Ok(candidates) = result {
-            let cosmos_chains = ["cosmos_hub", "osmosis", "juno", "akash", "stargaze", "secret_network", "terra", "kava", "regen", "sentinel"];
+            let cosmos_chains = [
+                "cosmos_hub",
+                "osmosis",
+                "juno",
+                "akash",
+                "stargaze",
+                "secret_network",
+                "terra",
+                "kava",
+                "regen",
+                "sentinel",
+            ];
             let matched_chains: Vec<_> = candidates.iter().map(|c| c.chain.as_str()).collect();
-            if cosmos_chains.iter().any(|&chain| matched_chains.contains(&chain)) {
+            if cosmos_chains
+                .iter()
+                .any(|&chain| matched_chains.contains(&chain))
+            {
                 // Found Cosmos chain match
-                let cosmos_match = candidates.iter().find(|c| cosmos_chains.contains(&c.chain.as_str())).unwrap();
-                assert!(cosmos_match.input_type == InputType::PublicKey || cosmos_match.input_type == InputType::Address);
+                let cosmos_match = candidates
+                    .iter()
+                    .find(|c| cosmos_chains.contains(&c.chain.as_str()))
+                    .unwrap();
+                assert!(
+                    cosmos_match.input_type == InputType::PublicKey
+                        || cosmos_match.input_type == InputType::Address
+                );
             }
         }
     }
@@ -858,14 +992,23 @@ mod tests {
         // Test Ed25519 public key for Substrate chains
         let input = "0x9f7f8c8d8e8f909192939495969798999a9b9c9d9e9fa0a1a2a3a4a5a6a7a8a9";
         let result = identify(input);
-        
+
         if let Ok(candidates) = result {
             let substrate_chains = ["polkadot", "kusama", "substrate"];
             let matched_chains: Vec<_> = candidates.iter().map(|c| c.chain.as_str()).collect();
-            if substrate_chains.iter().any(|&chain| matched_chains.contains(&chain)) {
+            if substrate_chains
+                .iter()
+                .any(|&chain| matched_chains.contains(&chain))
+            {
                 // Found Substrate chain match
-                let substrate_match = candidates.iter().find(|c| substrate_chains.contains(&c.chain.as_str())).unwrap();
-                assert!(substrate_match.input_type == InputType::PublicKey || substrate_match.input_type == InputType::Address);
+                let substrate_match = candidates
+                    .iter()
+                    .find(|c| substrate_chains.contains(&c.chain.as_str()))
+                    .unwrap();
+                assert!(
+                    substrate_match.input_type == InputType::PublicKey
+                        || substrate_match.input_type == InputType::Address
+                );
             }
         }
     }
@@ -876,14 +1019,23 @@ mod tests {
         // Test sr25519 public key (32-byte hex, indistinguishable from Ed25519 at classification)
         let input = "0x9f7f8c8d8e8f909192939495969798999a9b9c9d9e9fa0a1a2a3a4a5a6a7a8a9";
         let result = identify(input);
-        
+
         if let Ok(candidates) = result {
             let substrate_chains = ["polkadot", "kusama", "substrate"];
             let matched_chains: Vec<_> = candidates.iter().map(|c| c.chain.as_str()).collect();
-            if substrate_chains.iter().any(|&chain| matched_chains.contains(&chain)) {
+            if substrate_chains
+                .iter()
+                .any(|&chain| matched_chains.contains(&chain))
+            {
                 // Found Substrate chain match
-                let substrate_match = candidates.iter().find(|c| substrate_chains.contains(&c.chain.as_str())).unwrap();
-                assert!(substrate_match.input_type == InputType::PublicKey || substrate_match.input_type == InputType::Address);
+                let substrate_match = candidates
+                    .iter()
+                    .find(|c| substrate_chains.contains(&c.chain.as_str()))
+                    .unwrap();
+                assert!(
+                    substrate_match.input_type == InputType::PublicKey
+                        || substrate_match.input_type == InputType::Address
+                );
             }
         }
     }
@@ -894,13 +1046,15 @@ mod tests {
         let input = "0xd8da6bf26964af9d7eed9e03e53415d37aa96045";
         let chars = extract_characteristics(input);
         let chain_id = "ethereum";
-        
+
         let candidates = try_address_detection_for_chain(input, &chars, chain_id);
-        
+
         // Should return candidates if detection succeeds
         if !candidates.is_empty() {
             // All should be addresses
-            assert!(candidates.iter().all(|c| c.input_type == InputType::Address));
+            assert!(candidates
+                .iter()
+                .all(|c| c.input_type == InputType::Address));
             // All should be for Ethereum
             assert!(candidates.iter().all(|c| c.chain == "ethereum"));
             // Should have normalized address
@@ -926,9 +1080,9 @@ mod tests {
         let input = "0x742d35Cc6634C0532925a3b844Bc454e4438f44e";
         let chars = extract_characteristics(input);
         let chain_id = "ethereum";
-        
+
         let candidates = try_address_detection_for_chain(input, &chars, chain_id);
-        
+
         // Verify structure
         for candidate in &candidates {
             assert_eq!(candidate.input_type, InputType::Address);
@@ -947,9 +1101,9 @@ mod tests {
         let input = "1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa";
         let chars = extract_characteristics(input);
         let chain_id = "bitcoin";
-        
+
         let candidates = try_address_detection_for_chain(input, &chars, chain_id);
-        
+
         // Verify structure
         for candidate in &candidates {
             assert_eq!(candidate.input_type, InputType::Address);
@@ -968,9 +1122,9 @@ mod tests {
         let input = "bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4";
         let chars = extract_characteristics(input);
         let chain_id = "bitcoin";
-        
+
         let candidates = try_address_detection_for_chain(input, &chars, chain_id);
-        
+
         // Verify structure
         for candidate in &candidates {
             assert_eq!(candidate.input_type, InputType::Address);
@@ -989,9 +1143,9 @@ mod tests {
         let input = "0xd8da6bf26964af9d7eed9e03e53415d37aa96045";
         let chars = extract_characteristics(input);
         let chain_id = "nonexistent_chain";
-        
+
         let candidates = try_address_detection_for_chain(input, &chars, chain_id);
-        
+
         // Should return empty vector for invalid chain
         assert!(candidates.is_empty());
     }
@@ -1002,9 +1156,9 @@ mod tests {
         let input = "0xd8da6bf26964af9d7eed9e03e53415d37aa96045";
         let chars = extract_characteristics(input);
         let chain_id = "bitcoin";
-        
+
         let candidates = try_address_detection_for_chain(input, &chars, chain_id);
-        
+
         // Should return empty (EVM address doesn't match Bitcoin format)
         // But verify structure if any candidates returned
         assert!(candidates.is_empty());
@@ -1017,9 +1171,9 @@ mod tests {
         let input = "1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa";
         let chars = extract_characteristics(input);
         let chain_id = "bitcoin";
-        
+
         let candidates = try_address_detection_for_chain(input, &chars, chain_id);
-        
+
         // Should return at least one candidate if format matches
         // Verify all candidates have correct structure
         for candidate in &candidates {
@@ -1041,8 +1195,19 @@ mod tests {
         // Test all EVM chains with same address
         let input = "0xd8da6bf26964af9d7eed9e03e53415d37aa96045";
         let chars = extract_characteristics(input);
-        let evm_chains = ["ethereum", "polygon", "bsc", "avalanche", "arbitrum", "optimism", "base", "fantom", "celo", "gnosis"];
-        
+        let evm_chains = [
+            "ethereum",
+            "polygon",
+            "bsc",
+            "avalanche",
+            "arbitrum",
+            "optimism",
+            "base",
+            "fantom",
+            "celo",
+            "gnosis",
+        ];
+
         for chain_id in &evm_chains {
             let candidates = try_address_detection_for_chain(input, &chars, chain_id);
             // Each EVM chain should detect the address
@@ -1058,15 +1223,18 @@ mod tests {
     fn test_try_address_detection_cosmos_chains() {
         // Test Cosmos chains with their specific HRPs
         let cosmos_tests = vec![
-            ("cosmos_hub", "cosmos1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4"),
+            (
+                "cosmos_hub",
+                "cosmos1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4",
+            ),
             ("osmosis", "osmo1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4"),
             ("juno", "juno1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4"),
         ];
-        
+
         for (chain_id, address) in cosmos_tests {
             let chars = extract_characteristics(address);
             let candidates = try_address_detection_for_chain(address, &chars, chain_id);
-            
+
             if !candidates.is_empty() {
                 assert_eq!(candidates[0].chain, chain_id);
                 assert_eq!(candidates[0].input_type, InputType::Address);
@@ -1078,14 +1246,17 @@ mod tests {
     fn test_try_address_detection_substrate_chains() {
         // Test Substrate chains with SS58 addresses
         let substrate_tests = vec![
-            ("polkadot", "5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY"),
+            (
+                "polkadot",
+                "5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY",
+            ),
             ("kusama", "5FHneW46xGXgs5mUiveU4sbTyGBzmstUspZC92UhjJM694ty"),
         ];
-        
+
         for (chain_id, address) in substrate_tests {
             let chars = extract_characteristics(address);
             let candidates = try_address_detection_for_chain(address, &chars, chain_id);
-            
+
             if !candidates.is_empty() {
                 assert_eq!(candidates[0].chain, chain_id);
                 assert_eq!(candidates[0].input_type, InputType::Address);
@@ -1101,9 +1272,9 @@ mod tests {
         let chars = extract_characteristics(input);
         let key_type = crate::input::DetectedKeyType::Secp256k1 { compressed: true };
         let chain_id = "ethereum";
-        
+
         let candidates = try_public_key_derivation_for_chain(input, &chars, key_type, chain_id);
-        
+
         // Should derive to Ethereum address
         if !candidates.is_empty() {
             assert_eq!(candidates[0].chain, "ethereum");
@@ -1121,9 +1292,9 @@ mod tests {
         let chars = extract_characteristics(input);
         let key_type = crate::input::DetectedKeyType::Secp256k1 { compressed: true };
         let chain_id = "bitcoin";
-        
+
         let candidates = try_public_key_derivation_for_chain(input, &chars, key_type, chain_id);
-        
+
         // Should derive to Bitcoin address
         if !candidates.is_empty() {
             assert_eq!(candidates[0].chain, "bitcoin");
@@ -1140,9 +1311,9 @@ mod tests {
         let chars = extract_characteristics(input);
         let key_type = crate::input::DetectedKeyType::Ed25519;
         let chain_id = "solana";
-        
+
         let candidates = try_public_key_derivation_for_chain(input, &chars, key_type, chain_id);
-        
+
         // Should derive to Solana address
         if !candidates.is_empty() {
             assert_eq!(candidates[0].chain, "solana");
@@ -1158,9 +1329,9 @@ mod tests {
         let chars = extract_characteristics(input);
         let key_type = crate::input::DetectedKeyType::Ed25519;
         let chain_id = "cosmos_hub";
-        
+
         let candidates = try_public_key_derivation_for_chain(input, &chars, key_type, chain_id);
-        
+
         // Should derive to Cosmos address
         if !candidates.is_empty() {
             assert_eq!(candidates[0].chain, "cosmos_hub");
@@ -1176,9 +1347,9 @@ mod tests {
         let chars = extract_characteristics(input);
         let key_type = crate::input::DetectedKeyType::Ed25519;
         let chain_id = "polkadot";
-        
+
         let candidates = try_public_key_derivation_for_chain(input, &chars, key_type, chain_id);
-        
+
         // Should derive to SS58 address
         if !candidates.is_empty() {
             assert_eq!(candidates[0].chain, "polkadot");
@@ -1194,9 +1365,9 @@ mod tests {
         let chars = extract_characteristics(input);
         let key_type = crate::input::DetectedKeyType::Ed25519;
         let chain_id = "cardano";
-        
+
         let candidates = try_public_key_derivation_for_chain(input, &chars, key_type, chain_id);
-        
+
         // Should return empty (Cardano requires stake key)
         assert!(candidates.is_empty());
     }
@@ -1208,9 +1379,9 @@ mod tests {
         let chars = extract_characteristics(input);
         let key_type = crate::input::DetectedKeyType::Secp256k1 { compressed: true };
         let chain_id = "nonexistent_chain";
-        
+
         let candidates = try_public_key_derivation_for_chain(input, &chars, key_type, chain_id);
-        
+
         // Should return empty
         assert!(candidates.is_empty());
     }
@@ -1225,7 +1396,7 @@ mod tests {
         // Lowercase EVM addresses (should normalize)
         let input = "0xd8da6bf26964af9d7eed9e03e53415d37aa96045";
         let result = identify(input).unwrap();
-        
+
         assert!(!result.is_empty());
         // Should be normalized (not same as input if input was lowercase)
         assert!(result[0].normalized.starts_with("0x"));
@@ -1239,7 +1410,7 @@ mod tests {
         // Uppercase EVM addresses (should normalize)
         let input = "0xD8DA6BF26964AF9D7EED9E03E53415D37AA96045";
         let result = identify(input).unwrap();
-        
+
         assert!(!result.is_empty());
         // Should be normalized to checksum format
         assert!(result[0].normalized.starts_with("0x"));
@@ -1251,7 +1422,7 @@ mod tests {
         // Mixed-case with incorrect checksum (should normalize)
         let input = "0x742d35Cc6634C0532925a3b844Bc454e4438f44e";
         let result = identify(input).unwrap();
-        
+
         assert!(!result.is_empty());
         // Should normalize (may have lower confidence if checksum invalid)
         assert!(result[0].normalized.starts_with("0x"));
@@ -1264,7 +1435,7 @@ mod tests {
         // EVM: exactly 42 chars
         let input = "0x0000000000000000000000000000000000000000";
         let result = identify(input).unwrap();
-        
+
         assert!(!result.is_empty());
         assert_eq!(result[0].normalized.len(), 42);
     }
@@ -1276,9 +1447,9 @@ mod tests {
         let input = "0xd8da6bf26964af9d7eed9e03e53415d37aa96045";
         let chars = extract_characteristics(input);
         let chain_id = "bitcoin";
-        
+
         let candidates = try_address_detection_for_chain(input, &chars, chain_id);
-        
+
         // Should return empty (EVM address doesn't match Bitcoin format)
         assert!(candidates.is_empty());
     }
@@ -1288,7 +1459,7 @@ mod tests {
         // Ambiguous formats (32-byte base58: Solana address OR Ed25519 key)
         let input = "9WzDXwBbmkg8ZTbNMqUxvQRAyrZzDsGYdLVL9zYtAWWM";
         let result = identify(input).unwrap();
-        
+
         assert!(!result.is_empty());
         // Should return both address and public key possibilities
         let has_address = result.iter().any(|c| c.input_type == InputType::Address);
@@ -1303,10 +1474,10 @@ mod tests {
         // Compressed vs uncompressed secp256k1
         let compressed = "0x0279be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798";
         let uncompressed = "0x0479be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798483ada7726a3c4655da4fbfc0e1108a8fd17b448a68554199c47d08ffb10d4b8";
-        
+
         let result_compressed = identify(compressed).unwrap();
         let result_uncompressed = identify(uncompressed).unwrap();
-        
+
         // Both should be detected
         assert!(!result_compressed.is_empty());
         assert!(!result_uncompressed.is_empty());
@@ -1318,16 +1489,16 @@ mod tests {
         // Must be exactly 64 hex characters (32 bytes) - the previous test had 66 chars (33 bytes)
         let input = "0x9f7f8c8d8e8f909192939495969798999a9b9c9d9e9fa0a1a2a3a4a5a6a7a8a9";
         let result = identify(input).unwrap();
-        
+
         assert!(!result.is_empty());
         // Should match both Ed25519 and sr25519 chains
         let has_ed25519 = result.iter().any(|c| {
-            matches!(c.input_type, InputType::PublicKey) && 
-            (c.chain == "solana" || c.chain == "cardano" || c.chain.starts_with("cosmos"))
+            matches!(c.input_type, InputType::PublicKey)
+                && (c.chain == "solana" || c.chain == "cardano" || c.chain.starts_with("cosmos"))
         });
         let has_sr25519 = result.iter().any(|c| {
-            matches!(c.input_type, InputType::PublicKey) && 
-            (c.chain == "polkadot" || c.chain == "kusama")
+            matches!(c.input_type, InputType::PublicKey)
+                && (c.chain == "polkadot" || c.chain == "kusama")
         });
         // At least one should be present
         assert!(has_ed25519 || has_sr25519);
@@ -1339,7 +1510,7 @@ mod tests {
         // This is hard to test without invalid key format, but we can test wrong length
         let input = "0x1234"; // Too short to be a valid public key
         let result = identify(input);
-        
+
         // Should return error (can't classify as public key or address)
         assert!(result.is_err());
     }
@@ -1351,9 +1522,9 @@ mod tests {
         let chars = extract_characteristics(input);
         let key_type = crate::input::DetectedKeyType::Ed25519;
         let chain_id = "cardano";
-        
+
         let candidates = try_public_key_derivation_for_chain(input, &chars, key_type, chain_id);
-        
+
         // Should return empty (Cardano requires stake key)
         assert!(candidates.is_empty());
     }
@@ -1363,7 +1534,7 @@ mod tests {
         // Invalid key encoding
         let input = "not-a-valid-key-encoding";
         let result = identify(input);
-        
+
         // Should return error
         assert!(result.is_err());
     }
@@ -1373,7 +1544,7 @@ mod tests {
     fn test_edge_case_empty_input_string() {
         // Empty input string
         let result = identify("");
-        
+
         // Should return error
         assert!(result.is_err());
     }
@@ -1383,7 +1554,7 @@ mod tests {
         // Invalid encoding
         let input = "!!!invalid!!!";
         let result = identify(input);
-        
+
         // Should return error
         assert!(result.is_err());
     }
@@ -1394,9 +1565,9 @@ mod tests {
         let input = "cosmos1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4";
         let chars = extract_characteristics(input);
         let chain_id = "osmosis"; // Wrong chain (Osmosis uses "osmo" HRP)
-        
+
         let candidates = try_address_detection_for_chain(input, &chars, chain_id);
-        
+
         // Should return empty (wrong HRP)
         assert!(candidates.is_empty());
     }
@@ -1407,12 +1578,24 @@ mod tests {
         // Same address on multiple EVM chains (should return all)
         let input = "0x000000000000000000000000000000000000dEaD";
         let result = identify(input).unwrap();
-        
+
         assert!(!result.is_empty());
         // Should return multiple EVM chains
-        let evm_chains = ["ethereum", "polygon", "bsc", "avalanche", "arbitrum", "optimism", "base", "fantom", "celo", "gnosis"];
+        let evm_chains = [
+            "ethereum",
+            "polygon",
+            "bsc",
+            "avalanche",
+            "arbitrum",
+            "optimism",
+            "base",
+            "fantom",
+            "celo",
+            "gnosis",
+        ];
         let matched_chains: Vec<_> = result.iter().map(|c| c.chain.as_str()).collect();
-        let matched_evm_count = evm_chains.iter()
+        let matched_evm_count = evm_chains
+            .iter()
             .filter(|&chain| matched_chains.contains(&chain))
             .count();
         assert!(matched_evm_count >= 1); // At least one EVM chain
@@ -1423,7 +1606,7 @@ mod tests {
         // Ambiguous input (address + public key possibilities)
         let input = "9WzDXwBbmkg8ZTbNMqUxvQRAyrZzDsGYdLVL9zYtAWWM";
         let result = identify(input).unwrap();
-        
+
         assert!(!result.is_empty());
         // Should return both address and public key candidates
         let has_address = result.iter().any(|c| c.input_type == InputType::Address);
@@ -1437,10 +1620,10 @@ mod tests {
         // Chain with multiple address formats (Bitcoin: P2PKH, P2SH, Bech32)
         let p2pkh = "1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa";
         let bech32 = "bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4";
-        
+
         let result_p2pkh = identify(p2pkh).unwrap();
         let result_bech32 = identify(bech32).unwrap();
-        
+
         // Both should match Bitcoin
         assert!(result_p2pkh.iter().any(|c| c.chain == "bitcoin"));
         assert!(result_bech32.iter().any(|c| c.chain == "bitcoin"));
@@ -1451,12 +1634,13 @@ mod tests {
         // Public key that derives to multiple chains
         let input = "0x0279be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798";
         let result = identify(input).unwrap();
-        
+
         assert!(!result.is_empty());
         // Should match multiple g chains (EVM, Bitcoin, Tron)
         let secp256k1_chains = ["ethereum", "bitcoin", "tron"];
         let matched_chains: Vec<_> = result.iter().map(|c| c.chain.as_str()).collect();
-        let matched_count = secp256k1_chains.iter()
+        let matched_count = secp256k1_chains
+            .iter()
             .filter(|&chain| matched_chains.contains(&chain))
             .count();
         assert!(matched_count >= 1); // At least one secp256k1 chain

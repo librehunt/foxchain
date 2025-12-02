@@ -38,4 +38,3 @@ pub struct MetadataIndex {
 pub struct PipelineIndex {
     pub addresses: Vec<String>,
 }
-

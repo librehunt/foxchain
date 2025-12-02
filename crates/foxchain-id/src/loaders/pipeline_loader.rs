@@ -17,4 +17,3 @@ pub fn load_pipeline(id: &str) -> Result<AddressPipeline, String> {
     serde_json::from_str(json)
         .map_err(|e| format!("Failed to parse pipeline JSON for {}: {}", id, e))
 }
-
