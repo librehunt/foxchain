@@ -8,8 +8,8 @@ pub mod detection;
 
 use crate::{Chain, ChainCandidate, Error, IdentificationResult};
 use derivation::{
-    derive_bitcoin_addresses, derive_cosmos_address, derive_evm_address, derive_solana_address,
-    derive_substrate_address,
+    derive_bitcoin_addresses, derive_cardano_address, derive_cosmos_address, derive_evm_address,
+    derive_solana_address, derive_substrate_address, derive_tron_address,
 };
 use detection::{detect, PublicKeyFormat, PublicKeyType};
 
@@ -81,6 +81,22 @@ pub fn detect_public_key(input: &str) -> Result<Option<IdentificationResult>, Er
                     confidence,
                     reasoning: format!(
                         "Substrate address derived from {} secp256k1 public key",
+                        match format {
+                            PublicKeyFormat::Hex => "hex",
+                            PublicKeyFormat::Base58 => "base58",
+                            PublicKeyFormat::Bech32 => "bech32",
+                        }
+                    ),
+                });
+            }
+
+            // Tron address derivation
+            if let Some((chain, _address)) = derive_tron_address(&key_bytes)? {
+                candidates.push(ChainCandidate {
+                    chain,
+                    confidence: 0.80,
+                    reasoning: format!(
+                        "Tron address derived from {} secp256k1 public key",
                         match format {
                             PublicKeyFormat::Hex => "hex",
                             PublicKeyFormat::Base58 => "base58",
@@ -174,6 +190,23 @@ pub fn detect_public_key(input: &str) -> Result<Option<IdentificationResult>, Er
                     confidence,
                     reasoning: format!(
                         "Substrate address derived from {} sr25519 public key (indistinguishable from Ed25519)",
+                        match format {
+                            PublicKeyFormat::Hex => "hex",
+                            PublicKeyFormat::Base58 => "base58",
+                            PublicKeyFormat::Bech32 => "bech32",
+                        }
+                    ),
+                });
+            }
+
+            // Cardano address derivation - returns all 4 Cardano addresses (payment/stake, mainnet/testnet)
+            let cardano_addresses = derive_cardano_address(&key_bytes)?;
+            for (chain, _address) in cardano_addresses {
+                candidates.push(ChainCandidate {
+                    chain,
+                    confidence: 0.80,
+                    reasoning: format!(
+                        "Cardano address derived from {} Ed25519 public key",
                         match format {
                             PublicKeyFormat::Hex => "hex",
                             PublicKeyFormat::Base58 => "base58",
@@ -648,5 +681,51 @@ mod tests {
         let invalid_input = "not-a-key";
         let result = detect_public_key(invalid_input).unwrap();
         assert!(result.is_none());
+    }
+
+    #[test]
+    fn test_detect_public_key_secp256k1_with_tron() {
+        // Test secp256k1 key that should derive Tron address
+        let key_hex = "0x0479be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798483ada7726a3c4655da4fbfc0e1108a8fd17b448a68554199c47d08ffb10d4b8";
+        let result = detect_public_key(key_hex).unwrap();
+        assert!(result.is_some());
+        let id_result = result.unwrap();
+        
+        // Should have Tron chain
+        assert!(id_result
+            .candidates
+            .iter()
+            .any(|c| matches!(c.chain, Chain::Tron)));
+        
+        let tron = id_result
+            .candidates
+            .iter()
+            .find(|c| matches!(c.chain, Chain::Tron))
+            .unwrap();
+        assert_eq!(tron.confidence, 0.80);
+        assert!(tron.reasoning.contains("Tron"));
+    }
+
+    #[test]
+    fn test_detect_public_key_ed25519_with_cardano() {
+        // Test Ed25519 key that should derive Cardano addresses
+        let key_hex = "0x79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798";
+        let result = detect_public_key(key_hex).unwrap();
+        assert!(result.is_some());
+        let id_result = result.unwrap();
+        
+        // Should have Cardano chains (4 addresses: payment/stake, mainnet/testnet)
+        let cardano_chains: Vec<_> = id_result
+            .candidates
+            .iter()
+            .filter(|c| matches!(c.chain, Chain::Cardano))
+            .collect();
+        assert_eq!(cardano_chains.len(), 4, "Should have 4 Cardano addresses");
+        
+        // Verify all have correct confidence
+        for candidate in cardano_chains {
+            assert_eq!(candidate.confidence, 0.80);
+            assert!(candidate.reasoning.contains("Cardano"));
+        }
     }
 }
