@@ -4,6 +4,7 @@
 //! string (address, public key, or private key) belongs to.
 
 mod address;
+mod formats;
 mod input;
 mod public_key;
 mod registry;

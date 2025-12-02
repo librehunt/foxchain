@@ -5,7 +5,8 @@
 use crate::input::CategorySignature;
 use crate::registry::ChainMetadata;
 use std::collections::HashMap;
+use std::sync::Arc;
 
 /// Groups of chains organized by category signature
-pub type CandidateGroups = HashMap<CategorySignature, Vec<&'static ChainMetadata>>;
+pub type CandidateGroups = HashMap<CategorySignature, Vec<Arc<ChainMetadata>>>;
 
