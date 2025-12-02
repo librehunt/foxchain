@@ -25,11 +25,17 @@ pub fn detect_public_key(input: &str) -> Result<Option<IdentificationResult>, Er
 
     match key_type {
         PublicKeyType::Secp256k1 => {
-            // EVM address derivation
-            if derive_evm_address(&key_bytes)?.is_some() {
+            // EVM address derivation - returns all 10 EVM chains
+            let evm_addresses = derive_evm_address(&key_bytes)?;
+            for (chain, _address) in evm_addresses {
+                let confidence = if matches!(chain, Chain::Ethereum) {
+                    0.85
+                } else {
+                    0.80
+                };
                 candidates.push(ChainCandidate {
-                    chain: Chain::Ethereum,
-                    confidence: 0.85,
+                    chain,
+                    confidence,
                     reasoning: format!(
                         "EVM address derived from {} secp256k1 public key",
                         match format {
@@ -104,9 +110,10 @@ pub fn detect_public_key(input: &str) -> Result<Option<IdentificationResult>, Er
     // Use the first derived address as normalized representation
     // For secp256k1, prefer EVM address; for Ed25519, prefer Solana
     let normalized = match key_type {
-        PublicKeyType::Secp256k1 => {
-            derive_evm_address(&key_bytes)?.unwrap_or_else(|| "unknown".to_string())
-        }
+        PublicKeyType::Secp256k1 => derive_evm_address(&key_bytes)?
+            .first()
+            .map(|(_, addr)| addr.clone())
+            .unwrap_or_else(|| "unknown".to_string()),
         PublicKeyType::Ed25519 => {
             if let Some(addr) = derive_solana_address(&key_bytes) {
                 addr
@@ -135,11 +142,45 @@ mod tests {
         assert!(result.is_some());
         let id_result = result.unwrap();
         assert!(!id_result.candidates.is_empty());
-        // Should have EVM and Bitcoin candidates
+        // Should have all 10 EVM chains and Bitcoin candidates
+        let evm_chains: Vec<_> = id_result
+            .candidates
+            .iter()
+            .filter(|c| {
+                matches!(
+                    c.chain,
+                    Chain::Ethereum
+                        | Chain::Polygon
+                        | Chain::BSC
+                        | Chain::Avalanche
+                        | Chain::Arbitrum
+                        | Chain::Optimism
+                        | Chain::Base
+                        | Chain::Fantom
+                        | Chain::Celo
+                        | Chain::Gnosis
+                )
+            })
+            .collect();
+        assert_eq!(evm_chains.len(), 10, "Should have all 10 EVM chains");
+        // Verify Ethereum has highest confidence
+        let ethereum = id_result
+            .candidates
+            .iter()
+            .find(|c| matches!(c.chain, Chain::Ethereum))
+            .unwrap();
+        assert_eq!(ethereum.confidence, 0.85);
+        // Verify other EVM chains have 0.80 confidence
+        for candidate in evm_chains.iter() {
+            if !matches!(candidate.chain, Chain::Ethereum) {
+                assert_eq!(candidate.confidence, 0.80);
+            }
+        }
+        // Should also have Bitcoin candidate
         assert!(id_result
             .candidates
             .iter()
-            .any(|c| matches!(c.chain, Chain::Ethereum)));
+            .any(|c| matches!(c.chain, Chain::Bitcoin)));
     }
 
     #[test]
