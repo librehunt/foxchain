@@ -76,24 +76,20 @@ fn detect_encoding(input: &str) -> (Vec<EncodingType>, Option<String>) {
     
     // Try Bech32/Bech32m first (most specific)
     // Use bech32 library's decode to get the correct HRP
-    match bech32_encoding::decode(input) {
-        Ok((decoded_hrp, _, variant)) => {
-            hrp = Some(decoded_hrp.clone());
-            match variant {
-                bech32::Variant::Bech32 => encodings.push(EncodingType::Bech32),
-                bech32::Variant::Bech32m => encodings.push(EncodingType::Bech32m),
-            }
+    if let Ok((decoded_hrp, _, variant)) = bech32_encoding::decode(input) {
+        hrp = Some(decoded_hrp.clone());
+        match variant {
+            bech32::Variant::Bech32 => encodings.push(EncodingType::Bech32),
+            bech32::Variant::Bech32m => encodings.push(EncodingType::Bech32m),
         }
-        Err(_) => {}
     }
     
     // Try hex encoding
-    if input.starts_with("0x") {
-        let hex_part = &input[2..];
+    if let Some(hex_part) = input.strip_prefix("0x") {
         if hex_part.chars().all(|c| c.is_ascii_hexdigit()) {
             encodings.push(EncodingType::Hex);
         }
-    } else if input.chars().all(|c| c.is_ascii_hexdigit()) && input.len() % 2 == 0 {
+    } else if input.chars().all(|c| c.is_ascii_hexdigit()) && input.len().is_multiple_of(2) {
         encodings.push(EncodingType::Hex);
     }
     
@@ -147,10 +143,8 @@ fn detect_char_set(input: &str, encodings: &[EncodingType]) -> CharSet {
             CharSet::Hex
         } else if is_base58(input) {
             CharSet::Base58
-        } else if input.chars().all(|c| c.is_ascii_alphanumeric()) {
-            CharSet::Alphanumeric
         } else {
-            CharSet::Alphanumeric // Default fallback
+            CharSet::Alphanumeric // Default fallback (includes alphanumeric case)
         }
     }
 }

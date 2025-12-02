@@ -52,10 +52,8 @@ impl AddressMetadata {
         chars: &crate::input::InputCharacteristics,
     ) -> bool {
         // Check encoding type matches - try all detected encodings
-        if !chars.encoding.is_empty() {
-            if !chars.encoding.contains(&self.encoding) {
-                return false;
-            }
+        if !chars.encoding.is_empty() && !chars.encoding.contains(&self.encoding) {
+            return false;
         }
         
         // Check length
@@ -75,10 +73,8 @@ impl AddressMetadata {
         // so we skip prefix check and rely on version byte validation instead
         if !self.prefixes.is_empty() {
             let skip_prefix_check = matches!(self.encoding, EncodingType::Base58Check) && !self.version_bytes.is_empty();
-            if !skip_prefix_check {
-                if !self.prefixes.iter().any(|p| chars.prefixes.contains(p)) {
-                    return false;
-                }
+            if !skip_prefix_check && !self.prefixes.iter().any(|p| chars.prefixes.contains(p)) {
+                return false;
             }
         }
         

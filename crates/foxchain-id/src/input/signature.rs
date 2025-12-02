@@ -44,7 +44,7 @@ impl CategorySignature {
             } else if !prefixes.is_empty() {
                 // Keep longest prefix as fallback
                 let mut sorted = prefixes;
-                sorted.sort_by(|a, b| b.len().cmp(&a.len()));
+                sorted.sort_by_key(|b| std::cmp::Reverse(b.len()));
                 vec![sorted[0].clone()]
             } else {
                 vec![]
@@ -109,10 +109,8 @@ impl CategorySignature {
         }
         
         // Check prefixes
-        if !self.prefixes.is_empty() {
-            if !self.prefixes.iter().any(|p| chars.prefixes.contains(p)) {
-                return false;
-            }
+        if !self.prefixes.is_empty() && !self.prefixes.iter().any(|p| chars.prefixes.contains(p)) {
+            return false;
         }
         
         // Check HRP prefixes

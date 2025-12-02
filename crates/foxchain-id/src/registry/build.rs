@@ -57,7 +57,7 @@ impl Registry {
     
     /// Get the global registry instance
     pub fn get() -> &'static Registry {
-        REGISTRY.get_or_init(|| Registry::build())
+        REGISTRY.get_or_init(Registry::build)
     }
     
     /// Find all chains that support a given address format
@@ -114,10 +114,8 @@ fn matches_address_format(chars: &crate::input::InputCharacteristics, metadata: 
     }
     
     // Check prefixes
-    if !metadata.prefixes.is_empty() {
-        if !metadata.prefixes.iter().any(|p| chars.prefixes.contains(p)) {
-            return false;
-        }
+    if !metadata.prefixes.is_empty() && !metadata.prefixes.iter().any(|p| chars.prefixes.contains(p)) {
+        return false;
     }
     
     // Check HRP
@@ -139,10 +137,8 @@ fn matches_address_format(chars: &crate::input::InputCharacteristics, metadata: 
     }
     
     // Check encoding type - match if any of the detected encodings matches
-    if !chars.encoding.is_empty() {
-        if !chars.encoding.contains(&metadata.encoding) {
-            return false;
-        }
+    if !chars.encoding.is_empty() && !chars.encoding.contains(&metadata.encoding) {
+        return false;
     }
     
     true
