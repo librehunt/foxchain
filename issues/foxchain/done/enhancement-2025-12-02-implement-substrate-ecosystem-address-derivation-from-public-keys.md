@@ -2,7 +2,7 @@
 
 **Type**: Enhancement ✨  
 **Created**: 2025-12-02  
-**Status**: in_progress
+**Status**: done
 
 ## Summary
 
