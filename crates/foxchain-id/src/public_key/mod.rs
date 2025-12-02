@@ -176,11 +176,29 @@ mod tests {
                 assert_eq!(candidate.confidence, 0.80);
             }
         }
-        // Should also have Bitcoin candidate
+        // Should also have all Bitcoin ecosystem candidates
+        let bitcoin_chains: Vec<_> = id_result
+            .candidates
+            .iter()
+            .filter(|c| matches!(c.chain, Chain::Bitcoin | Chain::Litecoin | Chain::Dogecoin))
+            .collect();
+        assert_eq!(
+            bitcoin_chains.len(),
+            3,
+            "Should have all 3 Bitcoin ecosystem chains"
+        );
         assert!(id_result
             .candidates
             .iter()
             .any(|c| matches!(c.chain, Chain::Bitcoin)));
+        assert!(id_result
+            .candidates
+            .iter()
+            .any(|c| matches!(c.chain, Chain::Litecoin)));
+        assert!(id_result
+            .candidates
+            .iter()
+            .any(|c| matches!(c.chain, Chain::Dogecoin)));
     }
 
     #[test]
