@@ -6,9 +6,11 @@ pub mod bitcoin;
 pub mod cosmos;
 pub mod evm;
 pub mod solana;
+pub mod substrate;
 
 // Re-export main derivation functions
 pub use bitcoin::derive_bitcoin_addresses;
 pub use cosmos::derive_cosmos_address;
 pub use evm::derive_evm_address;
 pub use solana::derive_solana_address;
+pub use substrate::derive_substrate_address;

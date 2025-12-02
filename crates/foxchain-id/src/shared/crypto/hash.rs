@@ -1,5 +1,6 @@
 //! Hash functions (SHA256, Keccak, RIPEMD160, Blake2b)
 
+use blake2::{Blake2b512, Digest as Blake2Digest};
 use ripemd::Ripemd160;
 use sha2::{Digest, Sha256};
 use tiny_keccak::{Hasher, Keccak};
@@ -27,6 +28,15 @@ pub fn keccak256(data: &[u8]) -> [u8; 32] {
 pub fn hash160(data: &[u8]) -> [u8; 20] {
     let sha256_hash = sha256(data);
     Ripemd160::digest(sha256_hash).into()
+}
+
+/// Compute Blake2b-512 hash and return first 32 bytes
+/// Used for Substrate secp256k1 account ID derivation
+pub fn blake2b_256(data: &[u8]) -> [u8; 32] {
+    let hash = Blake2b512::digest(data);
+    let mut result = [0u8; 32];
+    result.copy_from_slice(&hash[..32]);
+    result
 }
 
 #[cfg(test)]

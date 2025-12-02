@@ -23,6 +23,8 @@ pub enum PublicKeyType {
     Secp256k1,
     /// Ed25519 public key (used by Solana, Cosmos)
     Ed25519,
+    /// sr25519 public key (used by Substrate)
+    Sr25519,
     /// Unknown public key type
     #[allow(dead_code)]
     Unknown,
