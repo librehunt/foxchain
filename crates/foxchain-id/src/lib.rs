@@ -4,7 +4,9 @@
 //! string (address, public key, or private key) belongs to.
 
 mod address;
+mod input;
 mod public_key;
+mod registry;
 mod shared;
 
 use address::detection::{bitcoin, cardano, cosmos, evm, solana, substrate, tron};
