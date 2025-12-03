@@ -1,25 +1,22 @@
-[workspace]
-members = [
-    ".",
-    "crates/foxchain-id",
-    "crates/foxchain-analysis",
-]
-resolver = "2"
-
-[workspace.package]
-version = "0.0.1"
+[package]
+name = "foxchain-id"
+version = "0.1.0"
 authors = ["LSH <github@lsh.tech>"]
 edition = "2021"
 license = "GPL-3.0"
-
-[package]
-name = "foxchain"
-version.workspace = true
-authors.workspace = true
-edition.workspace = true
-license.workspace = true
-description = "Multi-chain blockchain address identification and analysis library"
+description = "Multi-chain blockchain address identification library"
 
 [dependencies]
-foxchain-id = { path = "crates/foxchain-id" }
-foxchain-analysis = { path = "crates/foxchain-analysis" }
+hex = "0.4"
+tiny-keccak = { version = "2.0", features = ["keccak"] }
+base58 = "0.2"
+bech32 = "0.9"
+sha2 = "0.10"
+ss58-registry = "1.51"
+blake2 = "0.10"
+secp256k1 = "0.28"
+ed25519-dalek = "2.1"
+ripemd = "0.1"
+sha3 = "0.10"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"

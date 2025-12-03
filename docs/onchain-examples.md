@@ -202,19 +202,33 @@ verify: https://nearblocks.io/txns/9XGBYcsj1eDWzD72Acm9xSJdcHFw4rYJKewLXH8aj3Zt
 # Cosmos SDK (Cosmos Hub / Osmosis / Juno)
 
 chain: cosmoshub
-# Exemple de tx réelle (bank send)
-transaction: (voir via explorateur)
-verify: https://www.mintscan.io/cosmos/txs
+# Tx réelle (première tx du dernier bloc)
+transaction: 3e0ba99f9a254b4dec6ee5cb04f833535dd409eccc26133d8df0cf943ee9b326
+verify: https://www.mintscan.io/cosmos/txs/3e0ba99f9a254b4dec6ee5cb04f833535dd409eccc26133d8df0cf943ee9b326
 
 chain: osmosis
-# Exemple de tx réelle (swap/pool ou bank send)
-transaction: (voir via explorateur)
-verify: https://www.mintscan.io/osmosis/txs
+# Tx réelle (première tx du dernier bloc)
+transaction: c397c9c465418c9840139d95459512a9cbf705d57954ab20f709bca1043f7b63
+verify: https://www.mintscan.io/osmosis/txs/c397c9c465418c9840139d95459512a9cbf705d57954ab20f709bca1043f7b63
 
 chain: juno
-# Exemple de tx réelle (cw20 / bank send)
-transaction: (voir via explorateur)
-verify: https://www.mintscan.io/juno/txs
+# Tx réelle (première tx du dernier bloc)
+transaction: af000fd46500e8c9f06ef2731c4d5d6b084570090abd33a71eaae37232acba78
+verify: https://www.mintscan.io/juno/txs/af000fd46500e8c9f06ef2731c4d5d6b084570090abd33a71eaae37232acba78
+
+---
+
+# Substrate (Polkadot / Kusama)
+
+chain: polkadot
+# Extrinsic réel (dernier bloc, index 0)
+extrinsic: 28815161-0
+verify: https://polkadot.subscan.io/extrinsic/28815161-0
+
+chain: kusama
+# Extrinsic réel (dernier bloc, index 0)
+extrinsic: 31206697-0
+verify: https://kusama.subscan.io/extrinsic/31206697-0
 
 ---
 

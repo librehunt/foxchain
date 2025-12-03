@@ -2,3 +2,5 @@
 
 # Cursor agent state and cache
 .cursor/
+scripts
+codeanalysis
