@@ -1,110 +1,151 @@
-# foxchain
-Multi-chain blockchain address identification and analysis library
+# foxchain-id
 
-[![GitHub last commit](https://img.shields.io/github/last-commit/librehunt/foxchain)](https://github.com/librehunt/foxchain/commits/main)
-[![CI](https://github.com/librehunt/foxchain/workflows/CI/badge.svg)](https://github.com/librehunt/foxchain/actions)
-[![Codecov](https://codecov.io/gh/librehunt/foxchain/branch/main/graph/badge.svg)](https://codecov.io/gh/librehunt/foxchain)
-[![Docs](https://docs.rs/foxchain/badge.svg)](https://docs.rs/foxchain)
-[![Crates.io](https://img.shields.io/crates/v/foxchain.svg)](https://crates.io/crates/foxchain)
-[![crates.io](https://img.shields.io/crates/d/foxchain)](https://crates.io/crates/foxchain)
+Multi-chain blockchain address identification library for Rust.
 
----
+## Overview
 
-## Foxchain: Crates Overview
+`foxchain-id` provides functionality to identify which blockchain(s) an input string (address, public key, or private key) belongs to. It supports multiple blockchain address formats and returns normalized addresses with confidence scores for candidate chains.
 
-Foxchain will provide two Rust crates that work together:
+## Features
 
-- Identification crate (foxchain-id)
-  - Purpose: Given an input string (address, public key, or private key), detect the most likely blockchain(s) it belongs to.
-  - Output: normalized representation (e.g., checksum-cased for EVM, bech32 HRP for Cosmos/BTC SegWit, SS58 for Substrate), a list of candidate chains, confidence scores, and reasoning.
-  - Ambiguity: When an input could belong to multiple chains (e.g., EVM-style addresses valid across many EVM chains), it returns all candidates with confidence levels rather than guessing.
-  - Documentation: See [foxchain-id README](crates/foxchain-id/README.md) and [Format Documentation](crates/foxchain-id/docs/) for detailed information about supported address formats.
+- **Multi-chain support**: Identify addresses across multiple blockchain networks
+- **Address normalization**: Convert addresses to their canonical format
+- **Confidence scoring**: Get confidence scores for each candidate chain
+- **Format detection**: Automatically detect address format (EVM, Bitcoin, Solana, etc.)
+- **EIP-55 checksum validation**: Validate and normalize EVM addresses according to EIP-55
+- **Public key detection**: Detect public keys in various formats (hex, base58, bech32)
+- **Address derivation**: Derive addresses from public keys for supported chains
 
-- Analysis crate (working name: foxchain-analysis)
-  - Purpose: For an identified wallet (address/public key; optionally private key where explicitly allowed), retrieve on-chain data such as balances, transaction history, token transfers (ERC-20/721/1155), and chain-specific artifacts.
-  - Output: strongly typed Rust structs suitable for library use, with optional JSON serialization for downstream tooling.
-  - Backends: Designed to plug into explorer APIs (Etherscan-like), full-node RPC providers (e.g., Alchemy/Infura/QuickNode), and chain-specific services (e.g., Solana/TON/Cosmos endpoints), configured via environment variables.
+## Quick Start
 
-### Inputs recognized (non-exhaustive)
-- Addresses: EVM (0x…), BTC (P2PKH/P2SH/bech32), LTC/DOGE, TRON (base58check), Solana (base58), Cosmos (bech32 HRPs), Polkadot/Substrate (SS58), TON, etc.
-- Public keys: hex/base58/bech32 where applicable.
-- Private keys (optional): Hex/WIF/SS58, etc. If enabled, they are used only locally for derivation; never logged or transmitted.
-
-### Typical outputs
-- For identification: chain candidates with confidence, normalized address, and parsing notes.
-- For analysis: balances (native and tokens), transactions (with pagination and time range), token/NFT transfers where applicable, gas/fees, and basic labeling if available from providers.
-
-### Configuration
-- The analysis crate reads provider credentials from environment variables. Common patterns include: ETHERSCAN_API_KEY, ALCHEMY_API_KEY, INFURA_API_KEY, POLYGONSCAN_API_KEY, TRON_GRID_API_KEY, SOLANA_RPC_URL, etc. Only set what you need for the chains you use.
-- Secrets are never printed by the library. Prefer per-project .env files or your secret manager.
-
-### Integration via Foxchain
-Foxchain (top-level) will expose both crates so downstream consumers can depend on a single entry point. A simple flow:
-
-1) Run identification on an input to get candidate chains and normalized address.
-2) Select a chain (or iterate candidates) and run analysis to pull balances/transactions.
-
-### Minimal usage sketch (names illustrative)
-```rust path=null start=null
+```rust
 use foxchain_id::identify;
-use foxchain_analysis::{Client, Chain};
 
-fn main() -> anyhow::Result<()> {
-    let input = "0x742d35Cc6634C0532925a3b844Bc454e4438f44e";
-    let id = identify(input)?; // returns candidates + normalized form
-
-    // Pick Ethereum if present
-    if let Some(candidate) = id.candidates.iter().find(|c| c.chain == Chain::Ethereum) {
-        let addr = &candidate.normalized;
-        let client = Client::for_chain(Chain::Ethereum)?; // uses env-configured providers
-        let summary = client.account_summary(addr)?; // balances, tx count, tokens, etc.
-        println!("{:?}", summary);
+fn main() -> Result<(), Box<dyn std::error::Error>> {
+    // Identify an EVM address
+    let result = identify("0xd8da6bf26964af9d7eed9e03e53415d37aa96045")?;
+    
+    println!("Normalized address: {}", result[0].normalized);
+    for candidate in result {
+        println!("Chain: {}, Confidence: {:.2}", candidate.chain, candidate.confidence);
+        println!("Reasoning: {}", candidate.reasoning);
     }
+    
     Ok(())
 }
 ```
 
-### Security notes
-- Prefer addresses/public keys. Private key handling is optional and opt-in; if enabled, keep it offline and ephemeral. Do not persist, print, or transmit keys.
-- Respect third-party API rate limits and terms.
+## Supported Formats
 
-### Publishing to crates.io
+### Currently Implemented
 
-The project uses automated publishing via GitHub Actions. All crates are published to crates.io when a release is created or when manually triggered.
+- **EVM Addresses** (Ethereum, Polygon, BSC, Avalanche, Arbitrum, Optimism, Base, Fantom, Celo, Gnosis)
+  - Format: `0x` followed by 40 hex characters
+  - EIP-55 checksum validation and normalization
+  - See [EVM Addresses Documentation](docs/evm-addresses.md) for details
 
-#### Automatic Publishing
+- **Bitcoin Ecosystem** (Bitcoin, Litecoin, Dogecoin)
+  - P2PKH addresses (legacy, starts with `1`)
+  - P2SH addresses (script hash, starts with `3`)
+  - Bech32 addresses (native SegWit, starts with `bc1`/`ltc1`/etc.)
+  - Base58Check validation for P2PKH and P2SH
+  - Bech32 validation for native SegWit
+  - See [Bitcoin Addresses Documentation](docs/bitcoin-addresses.md) for details
 
-When a GitHub release is created, the workflow automatically:
-1. Extracts the version from the release tag
-2. Validates the version format
-3. Publishes crates in dependency order:
-   - `foxchain-id` (no workspace dependencies)
-   - `foxchain-analysis` (depends on `foxchain-id`)
-   - `foxchain` (depends on both)
+- **Solana Addresses**
+  - Base58 encoding (32-44 bytes when decoded)
+  - Length validation (standard 32 bytes, up to 44 bytes)
+  - Prefix filtering to avoid conflicts with other chains
+  - See [Solana Addresses Documentation](docs/solana-addresses.md) for details
 
-#### Manual Publishing
+- **Tron Addresses**
+  - Base58Check encoding (starts with T)
+  - Version byte validation (0x41 for mainnet)
+  - Length validation (25 bytes when decoded)
+  - Base58Check checksum validation
+  - See [Tron Addresses Documentation](docs/tron-addresses.md) for details
 
-You can manually trigger the publishing workflow:
+- **Cosmos Ecosystem Addresses** (Cosmos Hub, Osmosis, Juno, Akash, Stargaze, Secret Network, Terra, Kava, Regen, Sentinel)
+  - Bech32 encoding with HRP (Human Readable Part) prefixes
+  - Chain identification from HRP
+  - Bech32 validation and checksum verification
+  - Case-insensitive normalization
+  - See [Cosmos Addresses Documentation](docs/cosmos-addresses.md) for details
 
-1. Go to **Actions** → **Publish to crates.io** → **Run workflow**
-2. Optionally specify a version (leave empty to use version from `Cargo.toml`)
-3. Optionally enable dry run mode to validate without publishing
-4. Click **Run workflow**
+- **Substrate/Polkadot Ecosystem Addresses** (Polkadot, Kusama, Generic Substrate)
+  - SS58 encoding (Base58 with chain-specific prefixes)
+  - Chain identification from SS58 prefix
+  - SS58 structure validation
+  - Account ID extraction (32 bytes)
+  - See [Substrate Addresses Documentation](docs/substrate-addresses.md) for details
 
-#### Prerequisites
+- **Cardano Addresses**
+  - Bech32 encoding with HRP (Human Readable Part) prefixes
+  - Support for mainnet (addr, stake) and testnet (addr_test, stake_test) addresses
+  - Bech32 validation and checksum verification
+  - Case-insensitive normalization
 
-- `CARGO_REGISTRY_TOKEN` must be set in GitHub repository secrets
-- Get your token from [crates.io account settings](https://crates.io/me)
-- The token must have publish permissions for all crates
+- **Public Key Detection and Address Derivation**
+  - Hex public key detection (compressed/uncompressed secp256k1, Ed25519)
+  - Base58 public key detection
+  - Bech32 public key detection
+  - EVM address derivation from secp256k1 public keys
+  - Bitcoin address derivation from secp256k1 public keys (P2PKH)
+  - Solana address derivation from Ed25519 public keys
+  - Cosmos address derivation from Ed25519 public keys
 
-#### Version Management
+### Planned
 
-- All crates use workspace version from root `Cargo.toml`
-- Versions are automatically synchronized
-- When publishing via release, the version is extracted from the tag (e.g., `v0.2.2` → `0.2.2`)
+- TON, Algorand, Near, and more...
 
-### Roadmap (initial)
-- v0: robust format detection, multi-chain address normalization, EVM/BTC/Solana/Cosmos/Substrate coverage, explorer/RPC adapters, pagination.
-- v0.x: richer token/NFT coverage, internal txs, labels/tags where available, CLI wrapper, basic HTTP service.
+See [Format Documentation](docs/) for detailed information about each format.
 
-If crate names differ in your workspace, adjust references here after you finalize naming. This section is appended without altering existing README content.
+## Usage
+
+### Basic Identification
+
+```rust
+use foxchain_id::identify;
+
+let result = identify("0x742d35Cc6634C0532925a3b844Bc454e4438f44e")?;
+
+// Get normalized address
+let normalized = result[0].normalized;
+
+// Get all candidate chains
+for candidate in result {
+    if candidate.confidence > 0.9 {
+        println!("High confidence match: {}", candidate.chain);
+    }
+}
+```
+
+### Working with Results
+
+```rust
+use foxchain_id::identify;
+
+let result = identify("0xd8da6bf26964af9d7eed9e03e53415d37aa96045")?;
+
+// Find specific chain
+if let Some(ethereum) = result.iter().find(|c| c.chain == "ethereum") {
+    println!("Ethereum confidence: {}", ethereum.confidence);
+}
+
+// Get highest confidence candidate
+let best_match = result.iter()
+    .max_by(|a, b| a.confidence.partial_cmp(&b.confidence).unwrap());
+```
+
+## Documentation
+
+- [Format Documentation](docs/) - Detailed documentation for each address format
+- [API Documentation](https://docs.rs/foxchain-id) - Full API reference (when published)
+
+## Contributing
+
+Contributions are welcome! Please see the main project repository for contribution guidelines.
+
+## License
+
+This project is licensed under the GPL-3.0 license.

@@ -68,6 +68,11 @@
 
 ### Changed
 - Rename project from rbase to foxchain: updated package name in Cargo.toml, README.md badges/links, and CHANGELOG.md URLs
+- **Repository restructure**: Converted from Cargo workspace to single crate structure
+  - Moved foxchain-id crate to root directory
+  - Removed foxchain-analysis crate (will be moved to separate repository)
+  - Removed workspace configuration
+  - Updated all documentation and workflows to reflect single crate structure
 
 **Merged pull requests:**
 

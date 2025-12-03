@@ -16,7 +16,7 @@ env:
 
 jobs:
   publish:
-    name: Publish crates
+    name: Publish crate
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -47,7 +47,6 @@ jobs:
         id: version
         shell: bash
         run: |
-          # Always use version from workspace Cargo.toml
           VERSION=$(grep -E '^version\s*=' Cargo.toml | head -1 | sed 's/.*version\s*=\s*"\(.*\)".*/\1/')
           if [ -z "$VERSION" ]; then
             echo "Error: Could not determine version from Cargo.toml"
@@ -66,27 +65,6 @@ jobs:
             exit 1
           fi
           echo "Version format is valid: $VERSION"
-
-      - name: Verify crate versions match
-        shell: bash
-        run: |
-          WORKSPACE_VERSION=$(grep -E '^version\s*=' Cargo.toml | head -1 | sed 's/.*version\s*=\s*"\(.*\)".*/\1/')
-          ID_VERSION=$(grep -E '^version\s*=' crates/foxchain-id/Cargo.toml | head -1 | sed 's/.*version\s*=\s*"\(.*\)".*/\1/' || echo "workspace")
-          ANALYSIS_VERSION=$(grep -E '^version\s*=' crates/foxchain-analysis/Cargo.toml | head -1 | sed 's/.*version\s*=\s*"\(.*\)".*/\1/' || echo "workspace")
-          
-          echo "Workspace version: $WORKSPACE_VERSION"
-          echo "foxchain-id version: $ID_VERSION"
-          echo "foxchain-analysis version: $ANALYSIS_VERSION"
-          
-          # All should match workspace version (or be workspace)
-          if [ "$ID_VERSION" != "workspace" ] && [ "$ID_VERSION" != "$WORKSPACE_VERSION" ]; then
-            echo "Error: foxchain-id version mismatch"
-            exit 1
-          fi
-          if [ "$ANALYSIS_VERSION" != "workspace" ] && [ "$ANALYSIS_VERSION" != "$WORKSPACE_VERSION" ]; then
-            echo "Error: foxchain-analysis version mismatch"
-            exit 1
-          fi
 
       - name: Validate CARGO_REGISTRY_TOKEN
         shell: bash
@@ -116,60 +94,21 @@ jobs:
         env:
           CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
         run: |
-          cd crates/foxchain-id
           cargo publish --token "$CARGO_REGISTRY_TOKEN" || {
             echo "Error: Failed to publish foxchain-id"
             exit 1
           }
           echo "Successfully published foxchain-id"
-          # Wait a bit for crates.io to index
-          sleep 10
-
-      - name: Publish foxchain-analysis
-        if: github.event.inputs.dry_run != 'true'
-        env:
-          CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
-        run: |
-          cd crates/foxchain-analysis
-          cargo publish --token "$CARGO_REGISTRY_TOKEN" || {
-            echo "Error: Failed to publish foxchain-analysis"
-            exit 1
-          }
-          echo "Successfully published foxchain-analysis"
-          # Wait a bit for crates.io to index
-          sleep 10
-
-      - name: Publish foxchain (root)
-        if: github.event.inputs.dry_run != 'true'
-        env:
-          CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
-        run: |
-          cargo publish --token "$CARGO_REGISTRY_TOKEN" || {
-            echo "Error: Failed to publish foxchain"
-            exit 1
-          }
-          echo "Successfully published foxchain"
 
       - name: Dry run validation
         if: github.event.inputs.dry_run == 'true'
         run: |
           echo "Dry run mode: Validating publish readiness..."
-          cd crates/foxchain-id
           cargo publish --dry-run --allow-dirty || {
             echo "Error: foxchain-id dry run failed"
             exit 1
           }
-          cd ../foxchain-analysis
-          cargo publish --dry-run --allow-dirty || {
-            echo "Error: foxchain-analysis dry run failed"
-            exit 1
-          }
-          cd ../..
-          cargo publish --dry-run --allow-dirty || {
-            echo "Error: foxchain (root) dry run failed"
-            exit 1
-          }
-          echo "All crates passed dry run validation"
+          echo "Crate passed dry run validation"
 
       - name: Publish summary
         if: always()
@@ -177,17 +116,13 @@ jobs:
         run: |
           if [ "${{ github.event.inputs.dry_run }}" == "true" ]; then
             echo "## Dry Run Results ✅" >> $GITHUB_STEP_SUMMARY
-            echo "All crates validated successfully. Ready for publishing." >> $GITHUB_STEP_SUMMARY
+            echo "Crate validated successfully. Ready for publishing." >> $GITHUB_STEP_SUMMARY
           elif [ "${{ job.status }}" == "success" ]; then
             echo "## Publishing Complete ✅" >> $GITHUB_STEP_SUMMARY
-            echo "All crates published successfully to crates.io:" >> $GITHUB_STEP_SUMMARY
-            echo "- foxchain-id" >> $GITHUB_STEP_SUMMARY
-            echo "- foxchain-analysis" >> $GITHUB_STEP_SUMMARY
-            echo "- foxchain" >> $GITHUB_STEP_SUMMARY
+            echo "foxchain-id published successfully to crates.io" >> $GITHUB_STEP_SUMMARY
             echo "" >> $GITHUB_STEP_SUMMARY
             echo "Version: ${{ steps.version.outputs.version }}" >> $GITHUB_STEP_SUMMARY
           else
             echo "## Publishing Failed ❌" >> $GITHUB_STEP_SUMMARY
-            echo "One or more crates failed to publish. Check logs for details." >> $GITHUB_STEP_SUMMARY
+            echo "Failed to publish foxchain-id. Check logs for details." >> $GITHUB_STEP_SUMMARY
           fi
-

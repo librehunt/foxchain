@@ -182,21 +182,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3a3076410a55c90011c298b04d0cfa770b00fa04e1e3c97d3f6c9de105a03844"
 
 [[package]]
-name = "foxchain"
-version = "0.0.1"
-dependencies = [
- "foxchain-analysis",
- "foxchain-id",
-]
-
-[[package]]
-name = "foxchain-analysis"
-version = "0.0.1"
-dependencies = [
- "foxchain-id",
-]
-
-[[package]]
 name = "foxchain-id"
 version = "0.0.1"
 dependencies = [
