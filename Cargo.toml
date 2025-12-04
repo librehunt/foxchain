@@ -5,6 +5,11 @@ authors = ["LSH <github@lsh.tech>"]
 edition = "2021"
 license = "GPL-3.0"
 description = "Multi-chain blockchain address identification library"
+repository = "https://github.com/librehunt/foxchain"
+homepage = "https://github.com/librehunt/foxchain"
+documentation = "https://docs.rs/foxchain-id"
+keywords = ["blockchain", "address", "identification", "crypto", "multi-chain"]
+categories = ["cryptography", "web-programming"]
 
 [dependencies]
 hex = "0.4"
