@@ -1,8 +1,8 @@
 # Changelog
 
-## [Unreleased](https://github.com/librehunt/foxchain/tree/HEAD)
+## [Unreleased](https://github.com/librehunt/foxchain-id/tree/HEAD)
 
-[Full Changelog](https://github.com/librehunt/foxchain/compare/f9d6d027ed2e0164435e56e6c12f0184422a79c8...HEAD)
+[Full Changelog](https://github.com/librehunt/foxchain-id/compare/f9d6d027ed2e0164435e56e6c12f0184422a79c8...HEAD)
 
 ### Added
 - **Compressed public key decompression support**: Added `decompress_public_key` function in `shared/crypto/secp256k1.rs` to support decompressing 33-byte compressed secp256k1 public keys to 65-byte uncompressed format

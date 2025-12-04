@@ -69,7 +69,7 @@ No additional agents defined. Uses global agent configuration.
 
 ## Appendix
 
-- **GitHub**: https://github.com/librehunt/foxchain
+- **GitHub**: https://github.com/librehunt/foxchain-id
 - **Crates.io**: https://crates.io/crates/foxchain-id
 - **Documentation**: https://docs.rs/foxchain-id
 - **CI/CD**: GitHub Actions (see `.github/workflows/`)
